@@ -75,8 +75,9 @@ func (f *fixture) loadPerfectRun(t *testing.T) {
 func (f *fixture) insertLedger(t *testing.T, index int, cents int64, digest []byte) {
 	t.Helper()
 	mustExec(t, f.ledger, `INSERT INTO expense_ledger (delivery_key, tenant_id, source_id, event_id, receipt_id,
-		amount_cents, currency, merchant, payload_sha256) VALUES ($1, $2, $3, $4, $5, $6, 'CAD', 'm', $7)`,
-		"key", f.stream.TenantID, f.stream.SourceID, f.stream.EventID(index), f.stream.ReceiptID(index), cents, digest)
+		amount_cents, currency, merchant, payload_sha256) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		"key", f.stream.TenantID, f.stream.SourceID, f.stream.EventID(index), f.stream.ReceiptID(index), cents,
+		workload.Currency, f.stream.Merchant(index), digest)
 }
 
 func mustExec(t *testing.T, connection *pgx.Conn, statement string, arguments ...any) {
@@ -120,7 +121,13 @@ func TestEachKindOfDamageIsReported(t *testing.T) {
 		}, func(r Report) int { return r.MissingEffects }, 1},
 		{"wrong amount", func(t *testing.T, f *fixture) {
 			mustExec(t, f.ledger, `UPDATE expense_ledger SET amount_cents = amount_cents + 1 WHERE event_id = $1`, f.stream.EventID(6))
-		}, func(r Report) int { return r.AmountMismatches }, 1},
+		}, func(r Report) int { return r.FieldMismatches }, 1},
+		{"wrong merchant", func(t *testing.T, f *fixture) {
+			mustExec(t, f.ledger, `UPDATE expense_ledger SET merchant = 'nobody' WHERE event_id = $1`, f.stream.EventID(6))
+		}, func(r Report) int { return r.FieldMismatches }, 1},
+		{"wrong currency", func(t *testing.T, f *fixture) {
+			mustExec(t, f.ledger, `UPDATE expense_ledger SET currency = 'USD' WHERE event_id = $1`, f.stream.EventID(6))
+		}, func(r Report) int { return r.FieldMismatches }, 1},
 		{"wrong ledger digest", func(t *testing.T, f *fixture) {
 			mustExec(t, f.ledger, `UPDATE expense_ledger SET payload_sha256 = 'bad' WHERE event_id = $1`, f.stream.EventID(7))
 		}, func(r Report) int { return r.DigestMismatches }, 1},
@@ -172,5 +179,16 @@ func TestAnUnacknowledgedEventMayExistOrNot(t *testing.T) {
 	mustExec(t, run.ledger, `DELETE FROM expense_ledger WHERE event_id = $1`, run.stream.EventID(3))
 	if report := run.reconcile(t, 3); !report.Pass {
 		t.Fatalf("absent and unacknowledged: %+v", report)
+	}
+}
+
+// A stored event is owed a delivery even if the sender never heard back. Losing
+// it silently is the failure this whole project exists to catch.
+func TestAStoredEventWithNoEffectFailsEvenIfUnacknowledged(t *testing.T) {
+	run := newFixture(t)
+	mustExec(t, run.ledger, `DELETE FROM expense_ledger WHERE event_id = $1`, run.stream.EventID(3))
+	report := run.reconcile(t, 3)
+	if report.Pass || report.MissingEffects != 1 {
+		t.Fatalf("%+v", report)
 	}
 }

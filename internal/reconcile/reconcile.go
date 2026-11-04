@@ -18,8 +18,9 @@ import (
 type Expectation struct {
 	Stream workload.Stream
 	// UnackedIndexes lists events the generator never saw acknowledged. They may
-	// or may not exist: the commit can happen and the response can be lost. Every
-	// other event must exist.
+	// or may not exist: the commit can happen and the response can be lost. But
+	// once an event is stored, the engine owes it a delivery whether or not the
+	// sender heard back, so a stored event with no effect is always a failure.
 	UnackedIndexes []int
 	// ExpectEffects is false for a destination that was never meant to receive
 	// this stream.
@@ -39,6 +40,7 @@ type Report struct {
 	AttemptsTotal     int `json:"attempts_total"`
 	StaleAttempts     int `json:"stale_attempts"`
 	ExpiredLeases     int `json:"expired_leases"`
+	FailedAttempts    int `json:"failed_attempts"` // finished attempts with any outcome but success
 	RecordedConflicts int `json:"recorded_conflicts"`
 
 	MissingEvents     int `json:"missing_events"`
@@ -47,7 +49,7 @@ type Report struct {
 	MissingEffects    int `json:"missing_effects"`
 	RepeatedEffects   int `json:"repeated_effects"` // ledger rows beyond the first for one event
 	UnexpectedEffects int `json:"unexpected_effects"`
-	AmountMismatches  int `json:"amount_mismatches"`
+	FieldMismatches   int `json:"field_mismatches"` // receipt ID, amount, currency or merchant
 	DeadLetters       int `json:"dead_letters"`
 	UnfinishedJobs    int `json:"unfinished_jobs"`
 
@@ -58,6 +60,8 @@ type expectedEvent struct {
 	digest        [sha256.Size]byte
 	amountCents   int64
 	receiptID     string
+	currency      string
+	merchant      string
 	optional      bool
 	expectsEffect bool
 }
@@ -83,6 +87,8 @@ func buildExpected(expectations []Expectation) map[eventKey]expectedEvent {
 				digest:        sha256.Sum256(body),
 				amountCents:   stream.AmountCents(index),
 				receiptID:     stream.ReceiptID(index),
+				currency:      workload.Currency,
+				merchant:      stream.Merchant(index),
 				optional:      optional[index],
 				expectsEffect: expectation.ExpectEffects,
 			}
@@ -117,10 +123,11 @@ func Run(ctx context.Context, engineURL, receiverURL string, expectations []Expe
 	}
 	defer receiver.Close(ctx)
 
-	if err := compareEvents(ctx, engine, expected, &report); err != nil {
+	stored, err := compareEvents(ctx, engine, expected, &report)
+	if err != nil {
 		return report, err
 	}
-	if err := compareLedger(ctx, receiver, expected, &report); err != nil {
+	if err := compareLedger(ctx, receiver, expected, stored, &report); err != nil {
 		return report, err
 	}
 	if err := countEngineState(ctx, engine, &report); err != nil {
@@ -128,14 +135,14 @@ func Run(ctx context.Context, engineURL, receiverURL string, expectations []Expe
 	}
 	report.Pass = report.MissingEvents == 0 && report.UnexpectedEvents == 0 && report.DigestMismatches == 0 &&
 		report.MissingEffects == 0 && report.RepeatedEffects == 0 && report.UnexpectedEffects == 0 &&
-		report.AmountMismatches == 0 && report.DeadLetters == 0 && report.UnfinishedJobs == 0
+		report.FieldMismatches == 0 && report.DeadLetters == 0 && report.UnfinishedJobs == 0
 	return report, nil
 }
 
-func compareEvents(ctx context.Context, engine *pgx.Conn, expected map[eventKey]expectedEvent, report *Report) error {
+func compareEvents(ctx context.Context, engine *pgx.Conn, expected map[eventKey]expectedEvent, report *Report) (map[eventKey]bool, error) {
 	rows, err := engine.Query(ctx, `SELECT tenant_id, source_id, event_id, payload_sha256 FROM events`)
 	if err != nil {
-		return fmt.Errorf("read events: %w", err)
+		return nil, fmt.Errorf("read events: %w", err)
 	}
 	defer rows.Close()
 	stored := make(map[eventKey]bool, len(expected))
@@ -143,7 +150,7 @@ func compareEvents(ctx context.Context, engine *pgx.Conn, expected map[eventKey]
 		var key eventKey
 		var digest []byte
 		if err := rows.Scan(&key.tenantID, &key.sourceID, &key.eventID, &digest); err != nil {
-			return err
+			return nil, err
 		}
 		report.StoredEvents++
 		stored[key] = true
@@ -157,19 +164,20 @@ func compareEvents(ctx context.Context, engine *pgx.Conn, expected map[eventKey]
 		}
 	}
 	if err := rows.Err(); err != nil {
-		return err
+		return nil, err
 	}
 	for key, event := range expected {
 		if !event.optional && !stored[key] {
 			report.MissingEvents++
 		}
 	}
-	return nil
+	return stored, nil
 }
 
-func compareLedger(ctx context.Context, receiver *pgx.Conn, expected map[eventKey]expectedEvent, report *Report) error {
+func compareLedger(ctx context.Context, receiver *pgx.Conn, expected map[eventKey]expectedEvent, stored map[eventKey]bool, report *Report) error {
 	rows, err := receiver.Query(ctx, `
-		SELECT tenant_id, source_id, event_id, receipt_id, amount_cents, payload_sha256 FROM expense_ledger`)
+		SELECT tenant_id, source_id, event_id, receipt_id, amount_cents, currency, merchant, payload_sha256
+		FROM expense_ledger`)
 	if err != nil {
 		return fmt.Errorf("read ledger: %w", err)
 	}
@@ -177,10 +185,10 @@ func compareLedger(ctx context.Context, receiver *pgx.Conn, expected map[eventKe
 	seen := make(map[eventKey]int, len(expected))
 	for rows.Next() {
 		var key eventKey
-		var receiptID string
+		var receiptID, currency, merchant string
 		var amountCents int64
 		var digest []byte
-		if err := rows.Scan(&key.tenantID, &key.sourceID, &key.eventID, &receiptID, &amountCents, &digest); err != nil {
+		if err := rows.Scan(&key.tenantID, &key.sourceID, &key.eventID, &receiptID, &amountCents, &currency, &merchant, &digest); err != nil {
 			return err
 		}
 		report.LedgerRows++
@@ -190,8 +198,9 @@ func compareLedger(ctx context.Context, receiver *pgx.Conn, expected map[eventKe
 			report.UnexpectedEffects++
 			continue
 		}
-		if amountCents != event.amountCents || receiptID != event.receiptID {
-			report.AmountMismatches++
+		if amountCents != event.amountCents || receiptID != event.receiptID ||
+			currency != event.currency || merchant != event.merchant {
+			report.FieldMismatches++
 		}
 		if string(digest) != string(event.digest[:]) {
 			report.DigestMismatches++
@@ -205,7 +214,7 @@ func compareLedger(ctx context.Context, receiver *pgx.Conn, expected map[eventKe
 		report.RepeatedEffects += count - 1
 	}
 	for key, event := range expected {
-		if event.expectsEffect && !event.optional && seen[key] == 0 {
+		if event.expectsEffect && (!event.optional || stored[key]) && seen[key] == 0 {
 			report.MissingEffects++
 		}
 	}
@@ -223,8 +232,9 @@ func countEngineState(ctx context.Context, engine *pgx.Conn, report *Report) err
 	err = engine.QueryRow(ctx, `
 		SELECT count(*),
 		       count(*) FILTER (WHERE stale),
-		       count(*) FILTER (WHERE lease_expired_at IS NOT NULL)
-		FROM delivery_attempts`).Scan(&report.AttemptsTotal, &report.StaleAttempts, &report.ExpiredLeases)
+		       count(*) FILTER (WHERE lease_expired_at IS NOT NULL),
+		       count(*) FILTER (WHERE outcome IS NOT NULL AND outcome <> 'success')
+		FROM delivery_attempts`).Scan(&report.AttemptsTotal, &report.StaleAttempts, &report.ExpiredLeases, &report.FailedAttempts)
 	if err != nil {
 		return fmt.Errorf("read attempts: %w", err)
 	}

@@ -25,6 +25,9 @@ type Stream struct {
 	StartUnixNs   int64   `json:"start_unix_ns"`
 }
 
+// Currency is the currency of every synthetic receipt.
+const Currency = "CAD"
+
 var merchants = []string{
 	"Synthetic Coffee", "Example Grocery", "Placeholder Transit", "Sample Books", "Fixture Hardware",
 }
@@ -77,8 +80,8 @@ func (s Stream) ArrivalOffsets() []time.Duration {
 // the body, so the receiver can measure from arrival to durable effect. Padding
 // brings the body to exactly PayloadBytes.
 func (s Stream) Body(index int, arrivalUnixNs int64) []byte {
-	prefix := fmt.Sprintf(`{"receipt_id":%q,"amount_cents":%d,"currency":"CAD","merchant":%q,"arrival_unix_ns":%d,"pad":"`,
-		s.ReceiptID(index), s.AmountCents(index), s.Merchant(index), arrivalUnixNs)
+	prefix := fmt.Sprintf(`{"receipt_id":%q,"amount_cents":%d,"currency":%q,"merchant":%q,"arrival_unix_ns":%d,"pad":"`,
+		s.ReceiptID(index), s.AmountCents(index), Currency, s.Merchant(index), arrivalUnixNs)
 	const suffix = `"}`
 	padding := max(0, s.PayloadBytes-len(prefix)-len(suffix))
 	return []byte(prefix + strings.Repeat("x", padding) + suffix)
