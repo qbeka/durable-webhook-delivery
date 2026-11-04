@@ -68,10 +68,12 @@ type BenchResult struct {
 	Reconcile          reconcile.Report `json:"reconcile"`
 	Generator          loadgen.Summary  `json:"generator"`
 	ElapsedSeconds     float64          `json:"elapsed_seconds"`
+	Machine            GateResult       `json:"machine"`
 }
 
 // RunBench runs one repetition from a clean database, then keeps its raw data.
-func RunBench(ctx context.Context, root, outDir string, config BenchConfig, repetition int) (BenchResult, error) {
+func RunBench(ctx context.Context, root, outDir string, config BenchConfig, repetition int, gate QuietGate) (BenchResult, error) {
+	machine := gate.Wait(ctx)
 	started := time.Now()
 	runDir := filepath.Join(outDir, config.Name, fmt.Sprintf("rep-%d", repetition))
 	if err := os.RemoveAll(runDir); err != nil {
@@ -143,7 +145,7 @@ func RunBench(ctx context.Context, root, outDir string, config BenchConfig, repe
 		TimedOutEvents: summary.TimedOut, RejectedEvents: summary.Rejected + summary.Conflicts,
 		RetriedRequests: summary.RetriedRequests,
 		Latency:         SummarizeLatency(rows, windowStart, scheduleEnd),
-		DrainSeconds:    drainSeconds, Drained: drained, Reconcile: report, Generator: summary,
+		DrainSeconds:    drainSeconds, Drained: drained, Reconcile: report, Generator: summary, Machine: machine,
 	}
 	if summary.Offered > 0 {
 		result.ErrorRate = float64(summary.TimedOut+summary.Rejected+summary.Conflicts) / float64(summary.Offered)

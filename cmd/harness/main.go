@@ -113,6 +113,7 @@ func runBench(ctx context.Context, arguments []string) error {
 	receiverConnections := flags.Int("receiver-connections", 64, "database connections in the receiver")
 	repetitions := flags.Int("repetitions", 3, "repetitions of this configuration")
 	seed := flags.Uint64("seed", 7000, "workload seed, plus the repetition number")
+	gate := quietGateFlags(flags)
 	drainDeadline := flags.Duration("drain-deadline", 2*time.Minute, "longest wait for the queue after the schedule ends")
 	_ = flags.Parse(arguments)
 
@@ -136,14 +137,15 @@ func runBench(ctx context.Context, arguments []string) error {
 		return err
 	}
 	for repetition := 1; repetition <= *repetitions; repetition++ {
-		result, err := harness.RunBench(ctx, root, absolute, config, repetition)
+		result, err := harness.RunBench(ctx, root, absolute, config, repetition, *gate)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s rep %d: offered %.0f/s accepted %.0f/s completed %.0f/s errors %.4f%% slope %+.1f/s backlog %d effect %s ack p99 %.1fms drain %.1fs reconcile=%v genlag p99 %.0fus\n",
+		fmt.Printf("%s rep %d: offered %.0f/s accepted %.0f/s completed %.0f/s errors %.4f%% slope %+.1f/s backlog %d effect %s ack p99 %.1fms drain %.1fs reconcile=%v genlag p99 %.0fus background cpu %.0f%% contended=%v\n",
 			config.Name, repetition, result.OfferedRate, result.AcceptedRate, result.CompletedRate, 100*result.ErrorRate,
 			result.BacklogSlopePerSec, result.BacklogAtEnd, result.Latency, result.AckLatency.P99Ms,
-			result.DrainSeconds, result.Reconcile.Pass, result.Generator.SendLagP99Micros)
+			result.DrainSeconds, result.Reconcile.Pass, result.Generator.SendLagP99Micros,
+			result.Machine.BackgroundCPUPercent, result.Machine.Contended)
 	}
 	return manifest.Finish(filepath.Join(absolute, config.Name))
 }
@@ -161,6 +163,7 @@ func runRecovery(ctx context.Context, arguments []string) error {
 	breaker := flags.Int("breaker", 5, "consecutive failures that open the breaker")
 	repetitions := flags.Int("repetitions", 3, "repetitions")
 	seed := flags.Uint64("seed", 8000, "workload seed, plus the repetition number")
+	gate := quietGateFlags(flags)
 	_ = flags.Parse(arguments)
 
 	config := harness.RecoveryConfig{
@@ -180,7 +183,7 @@ func runRecovery(ctx context.Context, arguments []string) error {
 		return err
 	}
 	for repetition := 1; repetition <= *repetitions; repetition++ {
-		result, err := harness.RunRecovery(ctx, root, absolute, config, repetition)
+		result, err := harness.RunRecovery(ctx, root, absolute, config, repetition, *gate)
 		if err != nil {
 			return err
 		}
@@ -190,6 +193,15 @@ func runRecovery(ctx context.Context, arguments []string) error {
 			result.Scenario.Reconcile.MissingEffects, result.Scenario.Reconcile.DeadLetters)
 	}
 	return manifest.Finish(filepath.Join(absolute, config.Name))
+}
+
+// quietGateFlags adds the flags for waiting on a shared machine. The default
+// never waits, so a local run starts at once.
+func quietGateFlags(flags *flag.FlagSet) *harness.QuietGate {
+	gate := &harness.QuietGate{}
+	flags.Float64Var(&gate.MaxCPUPercent, "quiet-cpu", 1e9, "wait until background CPU is below this percent, 100 is one core")
+	flags.DurationVar(&gate.MaxWait, "quiet-wait", 0, "longest wait for a quiet machine")
+	return gate
 }
 
 func runGenerator(ctx context.Context, arguments []string) error {

@@ -55,6 +55,7 @@ type RecoveryResult struct {
 	BacklogAtOutageEnd   int64           `json:"backlog_at_outage_end"`
 	DrainAfterOutageSec  float64         `json:"seconds_to_drain_after_outage"`
 	Timeline             []TimelinePoint `json:"timeline"`
+	Machine              GateResult      `json:"machine"`
 	Scenario             Result          `json:"scenario"`
 }
 
@@ -69,7 +70,8 @@ type TimelinePoint struct {
 }
 
 // RunRecovery runs one outage and measures the healthy tenant around it.
-func RunRecovery(ctx context.Context, root, outDir string, config RecoveryConfig, repetition int) (RecoveryResult, error) {
+func RunRecovery(ctx context.Context, root, outDir string, config RecoveryConfig, repetition int, gate QuietGate) (RecoveryResult, error) {
+	machine := gate.Wait(ctx)
 	total := config.Lead + config.Outage + config.Trail
 	name := fmt.Sprintf("%s/rep-%d", config.Name, repetition)
 	env := &Env{Root: root, OutDir: outDir, Scale: 1, Seed: config.Seed + uint64(repetition)}
@@ -90,6 +92,7 @@ func RunRecovery(ctx context.Context, root, outDir string, config RecoveryConfig
 	if err != nil {
 		return RecoveryResult{}, err
 	}
+	result.Machine = machine
 	for _, tenant := range []string{"healthy", "flaky"} {
 		if err := compressEffects(filepath.Join(runDir, "effects-"+tenant+".csv")); err != nil {
 			return RecoveryResult{}, err
