@@ -9,6 +9,9 @@
 #   scripts/pg.sh start engine        start one cluster and wait for it
 set -euo pipefail
 
+# PostgreSQL refuses to start on macOS without a valid locale in the environment.
+export LC_ALL="${LC_ALL:-en_US.UTF-8}"
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 RUN_DIR="${HOOK_RUN_DIR:-$ROOT/.run}"
 # fsync_writethrough is the macOS setting that flushes the drive cache.
