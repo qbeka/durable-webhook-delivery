@@ -25,57 +25,111 @@ type Finish struct {
 	CountsFailure bool          // true when this attempt should feed the breaker
 }
 
-// FinishAttempt applies a worker's report if its lease token is still current.
-// It returns false when the lease was lost. The attempt history is updated
-// either way, and a stale report changes neither the delivery nor the breaker.
+// Completion pairs a claimed job with what happened to it.
+type Completion struct {
+	Job    Job
+	Report Finish
+}
+
+// FinishAttempt applies one report. See FinishAttempts.
 func (s *Store) FinishAttempt(ctx context.Context, job Job, report Finish, breaker BreakerConfig) (bool, error) {
-	var applied bool
+	applied, err := s.FinishAttempts(ctx, []Completion{{job, report}}, breaker)
+	return applied == 1, err
+}
+
+// FinishAttempts applies reports in one commit, and returns how many still held
+// their lease. The attempt history is updated either way, and a stale report
+// changes neither the delivery nor the breaker.
+//
+// One commit for many reports matters because a durable commit is the scarcest
+// resource here: see docs/experiments.md.
+//
+// Breaker rule within a batch: the order of reports inside one commit is unknown,
+// so a success resets the count, and the batch's failures then start it again.
+// A batch with no success adds to the existing count.
+func (s *Store) FinishAttempts(ctx context.Context, completions []Completion, breaker BreakerConfig) (int, error) {
+	count := len(completions)
+	ids := make([]int64, count)
+	tokens := make([]string, count)
+	states := make([]string, count)
+	retrySeconds := make([]float64, count)
+	errorTexts := make([]string, count)
+	outcomes := make([]string, count)
+	statuses := make([]int32, count)
+	countsFailure := make([]bool, count)
+	retryAfterSeconds := make([]float64, count)
+	for index, completion := range completions {
+		ids[index] = completion.Job.DeliveryID
+		tokens[index] = completion.Job.LeaseToken
+		states[index] = completion.Report.NextState
+		retrySeconds[index] = completion.Report.RetryDelay.Seconds()
+		errorTexts[index] = completion.Report.Error
+		outcomes[index] = completion.Report.Outcome
+		statuses[index] = int32(completion.Report.HTTPStatus)
+		countsFailure[index] = completion.Report.CountsFailure
+		retryAfterSeconds[index] = completion.Report.RetryAfter.Seconds()
+	}
+
+	var applied int
 	err := s.pool.QueryRow(ctx, `
-		WITH finished AS (
-			UPDATE deliveries SET
-				state = $3,
-				next_attempt_at = CASE WHEN $3 = 'pending' THEN clock_timestamp() + make_interval(secs => $4)
-				                       ELSE next_attempt_at END,
-				finished_at = CASE WHEN $3 = 'pending' THEN NULL ELSE clock_timestamp() END,
-				last_error = NULLIF($5, ''),
+		WITH reports AS (
+			SELECT * FROM unnest($1::bigint[], $2::uuid[], $3::text[], $4::double precision[], $5::text[],
+			                     $6::text[], $7::int[], $8::boolean[], $9::double precision[])
+				AS r (id, token, next_state, retry_seconds, error_text, outcome, http_status, counts_failure, retry_after_seconds)
+		), finished AS (
+			UPDATE deliveries d SET
+				state = r.next_state,
+				next_attempt_at = CASE WHEN r.next_state = 'pending'
+				                       THEN clock_timestamp() + make_interval(secs => r.retry_seconds)
+				                       ELSE d.next_attempt_at END,
+				finished_at = CASE WHEN r.next_state = 'pending' THEN NULL ELSE clock_timestamp() END,
+				last_error = NULLIF(r.error_text, ''),
 				lease_token = NULL, lease_owner = NULL, lease_expires_at = NULL
-			WHERE id = $1 AND lease_token = $2::uuid AND state = 'leased'
-			RETURNING destination_id
+			FROM reports r
+			WHERE d.id = r.id AND d.lease_token = r.token AND d.state = 'leased'
+			RETURNING d.id, d.destination_id
 		), history AS (
-			UPDATE delivery_attempts SET
+			UPDATE delivery_attempts a SET
 				finished_at = clock_timestamp(),
-				outcome = $6,
-				http_status = NULLIF($7::int, 0),
-				error = NULLIF($5, ''),
-				stale = NOT EXISTS (SELECT 1 FROM finished)
-			WHERE delivery_id = $1 AND lease_token = $2::uuid
-		), breaker_failure AS (
+				outcome = r.outcome,
+				http_status = NULLIF(r.http_status, 0),
+				error = NULLIF(r.error_text, ''),
+				stale = NOT EXISTS (SELECT 1 FROM finished f WHERE f.id = r.id)
+			FROM reports r
+			WHERE a.delivery_id = r.id AND a.lease_token = r.token
+		), per_destination AS (
+			SELECT f.destination_id,
+			       count(*) FILTER (WHERE r.counts_failure) AS failures,
+			       bool_or(r.next_state = 'succeeded') AS any_success,
+			       max(r.retry_after_seconds) AS retry_after_seconds
+			FROM finished f JOIN reports r ON r.id = f.id
+			GROUP BY f.destination_id
+		), counted AS (
+			SELECT p.*, CASE WHEN p.any_success THEN p.failures
+			                 ELSE d.consecutive_failures + p.failures END AS new_failures
+			FROM per_destination p JOIN destinations d ON d.id = p.destination_id
+		), breaker AS (
 			UPDATE destinations d SET
-				consecutive_failures = d.consecutive_failures + 1,
+				consecutive_failures = c.new_failures,
 				not_before = GREATEST(
 					d.not_before,
-					clock_timestamp() + make_interval(secs => $9),
-					CASE WHEN d.consecutive_failures + 1 >= $10::int
+					clock_timestamp() + make_interval(secs => c.retry_after_seconds),
+					CASE WHEN c.failures > 0 AND c.new_failures >= $10::int
 					     THEN clock_timestamp() + make_interval(secs => LEAST(
 					         $12::double precision,
-					         $11::double precision * power(2, LEAST(d.consecutive_failures + 1 - $10::int, 20))))
+					         $11::double precision * power(2, LEAST(c.new_failures - $10::int, 20))))
 					     ELSE '-infinity'::timestamptz END)
-			FROM finished WHERE d.id = finished.destination_id AND $8::boolean
-		), breaker_success AS (
+			FROM counted c
 			-- The condition keeps a healthy destination's row from being rewritten
-			-- on every delivery, which would contend with claims.
-			UPDATE destinations d SET consecutive_failures = 0
-			FROM finished
-			WHERE d.id = finished.destination_id AND $3 = 'succeeded' AND d.consecutive_failures > 0
+			-- on every batch, which would contend with claims.
+			WHERE d.id = c.destination_id AND d.consecutive_failures IS DISTINCT FROM c.new_failures
 		)
-		SELECT EXISTS (SELECT 1 FROM finished)`,
-		job.DeliveryID, job.LeaseToken, report.NextState, report.RetryDelay.Seconds(),
-		report.Error, report.Outcome, report.HTTPStatus, report.CountsFailure,
-		report.RetryAfter.Seconds(), breaker.FailureThreshold,
-		breaker.BaseDelay.Seconds(), breaker.MaxDelay.Seconds(),
+		SELECT count(*) FROM finished`,
+		ids, tokens, states, retrySeconds, errorTexts, outcomes, statuses, countsFailure, retryAfterSeconds,
+		breaker.FailureThreshold, breaker.BaseDelay.Seconds(), breaker.MaxDelay.Seconds(),
 	).Scan(&applied)
 	if err != nil {
-		return false, fmt.Errorf("finish attempt: %w", err)
+		return 0, fmt.Errorf("finish attempts: %w", err)
 	}
 	return applied, nil
 }

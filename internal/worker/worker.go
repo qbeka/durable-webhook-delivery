@@ -23,6 +23,9 @@ import (
 // minFinishWindow is the least time a worker gets to record an outcome.
 const minFinishWindow = 3 * time.Second
 
+// maxFinishBatch is the most outcomes written in one commit.
+const maxFinishBatch = 512
+
 // Config holds a worker's settings. Durations are explicit about their unit
 // through time.Duration.
 type Config struct {
@@ -52,9 +55,10 @@ func (c Config) Validate() error {
 
 // Worker runs the claim and delivery loop.
 type Worker struct {
-	config Config
-	store  *store.Store
-	client *http.Client
+	config      Config
+	store       *store.Store
+	client      *http.Client
+	completions chan completion
 }
 
 // New builds a worker.
@@ -67,8 +71,9 @@ func New(config Config, database *store.Store) (*Worker, error) {
 	transport.MaxIdleConnsPerHost = config.Concurrency
 	transport.DisableCompression = true
 	return &Worker{
-		config: config,
-		store:  database,
+		config:      config,
+		store:       database,
+		completions: make(chan completion, config.Concurrency),
 		client: &http.Client{
 			Transport: transport,
 			// A signed request must not follow a redirect to an unregistered URL.
@@ -84,6 +89,11 @@ func (w *Worker) Run(ctx context.Context) {
 	go func() {
 		defer close(reaperDone)
 		w.reapLoop(ctx)
+	}()
+	finisherDone := make(chan struct{})
+	go func() {
+		defer close(finisherDone)
+		w.finishLoop()
 	}()
 
 	slots := make(chan struct{}, w.config.Concurrency)
@@ -125,6 +135,8 @@ func (w *Worker) Run(ctx context.Context) {
 		}
 	}
 	inFlight.Wait()
+	close(w.completions)
+	<-finisherDone
 	<-reaperDone
 }
 
@@ -178,7 +190,10 @@ func (w *Worker) deliver(job store.Job, claimedAt time.Time) {
 	failpoint.Hit("after_response")
 
 	report := classify(w.config.Policy, job.BudgetUsed, status, requestErr, retryAfter)
-	w.finish(job, report, leaseDeadline.Add(w.config.LeaseMargin))
+	w.completions <- completion{
+		Completion: store.Completion{Job: job, Report: report},
+		giveUpAt:   giveUpTime(leaseDeadline.Add(w.config.LeaseMargin)),
+	}
 }
 
 // send makes one signed POST and returns the status and Retry-After header.
@@ -213,30 +228,67 @@ func (w *Worker) send(ctx context.Context, job store.Job) (status int, retryAfte
 	return response.StatusCode, response.Header.Get("Retry-After"), nil
 }
 
-// finish reports an outcome, retrying through a brief database failure.
+// completion is one outcome waiting to be written.
+type completion struct {
+	store.Completion
+	giveUpAt time.Time
+}
+
+// giveUpTime is when a worker stops trying to record an outcome. It is at least
+// minFinishWindow from now even when the lease has already ended. A worker paused
+// past its lease still has something true to record: the attempt history keeps its
+// report, marked stale, and the delivery does not change.
+func giveUpTime(leaseExpiry time.Time) time.Time {
+	if earliest := time.Now().Add(minFinishWindow); leaseExpiry.Before(earliest) {
+		return earliest
+	}
+	return leaseExpiry
+}
+
+// finishLoop writes outcomes in batches until the channel closes.
 //
-// The window is at least minFinishWindow even when the lease has already ended.
-// A worker that was paused past its lease still has something true to record: the
-// attempt history keeps its report, marked stale, and the delivery does not change.
-func (w *Worker) finish(job store.Job, report store.Finish, leaseExpiry time.Time) {
-	giveUpAt := leaseExpiry
-	if earliest := time.Now().Add(minFinishWindow); giveUpAt.Before(earliest) {
-		giveUpAt = earliest
+// There is no timer. A batch is whatever arrived while the last commit was
+// running, so light traffic commits one report at once, and heavy traffic gets
+// larger batches on its own.
+func (w *Worker) finishLoop() {
+	for first := range w.completions {
+		batch := []completion{first}
+	collect:
+		for len(batch) < maxFinishBatch {
+			select {
+			case next, open := <-w.completions:
+				if !open {
+					break collect
+				}
+				batch = append(batch, next)
+			default:
+				break collect
+			}
+		}
+		w.writeBatch(batch)
+	}
+}
+
+// writeBatch retries through a brief database failure. Giving up is safe: the
+// leases expire, the deliveries are sent again, and the receiver dedupes them.
+func (w *Worker) writeBatch(batch []completion) {
+	completions := make([]store.Completion, len(batch))
+	giveUpAt := batch[0].giveUpAt
+	for index, item := range batch {
+		completions[index] = item.Completion
+		if item.giveUpAt.After(giveUpAt) {
+			giveUpAt = item.giveUpAt
+		}
 	}
 	for {
 		ctx, cancel := context.WithDeadline(context.Background(), giveUpAt)
-		applied, err := w.store.FinishAttempt(ctx, job, report, w.config.Breaker)
+		_, err := w.store.FinishAttempts(ctx, completions, w.config.Breaker)
 		cancel()
 		if err == nil {
-			if !applied {
-				slog.Info("stale finish ignored", "worker", w.config.WorkerID, "delivery", job.DeliveryKey)
-			}
 			return
 		}
 		if time.Now().After(giveUpAt) {
-			// Safe: the lease expires and the receiver dedupes the resend.
-			slog.Warn("could not record outcome",
-				"worker", w.config.WorkerID, "delivery", job.DeliveryKey, "outcome", report.Outcome, "error", err)
+			slog.Warn("could not record outcomes", "worker", w.config.WorkerID, "count", len(batch), "error", err)
 			return
 		}
 		time.Sleep(100 * time.Millisecond)

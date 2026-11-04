@@ -333,7 +333,10 @@ func TestFinishAfterTheLeaseEndedIsRecordedAsStale(t *testing.T) {
 		t.Fatal(err)
 	}
 	report := store.Finish{NextState: store.StateSucceeded, Outcome: "success", HTTPStatus: 200}
-	engine.finish(jobs[0], report, time.Now().Add(-time.Minute)) // the lease ended long ago
+	engine.writeBatch([]completion{{
+		Completion: store.Completion{Job: jobs[0], Report: report},
+		giveUpAt:   giveUpTime(time.Now().Add(-time.Minute)), // the lease ended long ago
+	}})
 
 	record, err := route.database.DeliveryHistory(ctx, jobs[0].DeliveryKey)
 	if err != nil {

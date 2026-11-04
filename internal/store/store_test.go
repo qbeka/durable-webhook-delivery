@@ -444,6 +444,63 @@ func TestFinishingTwiceWithOneTokenAppliesOnce(t *testing.T) {
 	}
 }
 
+func TestOneBatchCanMixOutcomesAndSkipStaleReports(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 8)
+	ingestMany(t, database, "evt", 4)
+	ctx := context.Background()
+	jobs := claim(t, database, "worker", 4, time.Minute)
+	if len(jobs) != 4 {
+		t.Fatalf("got %d jobs", len(jobs))
+	}
+	stale := jobs[3]
+	stale.LeaseToken = "00000000-0000-0000-0000-000000000000"
+	applied, err := database.FinishAttempts(ctx, []Completion{
+		{jobs[0], Finish{NextState: StateSucceeded, Outcome: "success", HTTPStatus: 200}},
+		{jobs[1], Finish{NextState: StatePending, Outcome: "retryable_status", HTTPStatus: 500, Error: "status 500", RetryDelay: time.Hour, CountsFailure: true}},
+		{jobs[2], Finish{NextState: StateDead, Outcome: "terminal_status", HTTPStatus: 404, Error: "status 404"}},
+		{stale, Finish{NextState: StateSucceeded, Outcome: "success", HTTPStatus: 200}},
+	}, testBreaker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if applied != 3 {
+		t.Fatalf("applied %d, want 3", applied)
+	}
+	for state, want := range map[string]int{StateSucceeded: 1, StatePending: 1, StateDead: 1, StateLeased: 1} {
+		if got := countRows(t, database, `SELECT count(*) FROM deliveries WHERE state = $1`, state); got != want {
+			t.Errorf("%s: got %d, want %d", state, got, want)
+		}
+	}
+	if got := countRows(t, database, `SELECT consecutive_failures FROM destinations`); got != 1 {
+		t.Fatalf("a success resets the count, then the batch's one failure counts: got %d", got)
+	}
+}
+
+func TestBatchWithoutSuccessAddsToTheBreakerCount(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 8)
+	ingestMany(t, database, "evt", 3)
+	ctx := context.Background()
+	failure := Finish{NextState: StatePending, Outcome: "connection_error", Error: "refused", RetryDelay: time.Hour, CountsFailure: true}
+	for _, job := range claim(t, database, "worker", 2, time.Minute) {
+		if _, err := database.FinishAttempt(ctx, job, failure, testBreaker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := countRows(t, database, `SELECT consecutive_failures FROM destinations`); got != 2 {
+		t.Fatalf("got %d", got)
+	}
+	// A terminal answer is neither a success nor a failure of the destination.
+	terminal := claim(t, database, "worker", 1, time.Minute)[0]
+	if _, err := database.FinishAttempt(ctx, terminal, Finish{NextState: StateDead, Outcome: "terminal_status", HTTPStatus: 404}, testBreaker); err != nil {
+		t.Fatal(err)
+	}
+	if got := countRows(t, database, `SELECT consecutive_failures FROM destinations`); got != 2 {
+		t.Fatalf("a terminal answer changed the count to %d", got)
+	}
+}
+
 func TestExpiredLeaseBudgetEndsInDead(t *testing.T) {
 	database := openTestStore(t)
 	addRoute(t, database, 4)
