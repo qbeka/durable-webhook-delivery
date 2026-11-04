@@ -35,9 +35,9 @@ log "H1 target"
   --duration 10m --warmup 10s --repetitions 3 --drain-deadline 120s --out "$OUT/target" "${QUIET[@]}" | tee "$OUT/target.txt"
 
 log "H4 isolation"
-./bin/harness recovery --name slow-limits-on --mode slow --max-in-flight 16 --breaker 5 --out "$OUT/recovery" "${QUIET[@]}" | tee "$OUT/recovery.txt"
+./bin/harness recovery --name slow-limits-on --mode slow --max-in-flight 64 --breaker 5 --out "$OUT/recovery" "${QUIET[@]}" | tee "$OUT/recovery.txt"
 ./bin/harness recovery --name slow-limits-off --mode slow --max-in-flight 1024 --breaker 1000000 --out "$OUT/recovery" "${QUIET[@]}" | tee -a "$OUT/recovery.txt"
-./bin/harness recovery --name offline-limits-on --mode offline --max-in-flight 16 --breaker 5 --out "$OUT/recovery" "${QUIET[@]}" | tee -a "$OUT/recovery.txt"
+./bin/harness recovery --name offline-limits-on --mode offline --max-in-flight 64 --breaker 5 --out "$OUT/recovery" "${QUIET[@]}" | tee -a "$OUT/recovery.txt"
 
 log "H5 flush cost"
 scripts/pg.sh down

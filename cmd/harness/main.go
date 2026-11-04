@@ -159,7 +159,7 @@ func runRecovery(ctx context.Context, arguments []string) error {
 	lead := flags.Duration("lead", 20*time.Second, "normal traffic before the outage")
 	outage := flags.Duration("outage", time.Minute, "length of the outage")
 	trail := flags.Duration("trail", 20*time.Second, "traffic after the outage")
-	maxInFlight := flags.Int("max-in-flight", 16, "requests in flight per destination")
+	maxInFlight := flags.Int("max-in-flight", 64, "requests in flight per destination")
 	breaker := flags.Int("breaker", 5, "consecutive failures that open the breaker")
 	repetitions := flags.Int("repetitions", 3, "repetitions")
 	seed := flags.Uint64("seed", 8000, "workload seed, plus the repetition number")

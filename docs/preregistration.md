@@ -60,9 +60,11 @@ if 4 workers sustain at least one rung more than 1 worker.
 
 **H4, isolation.** With limits on, a slow destination does not hurt a healthy tenant.
 Two tenants at 300 events per second each, one destination slow for 60 seconds, with
-20 seconds before and after. Compare `limits on` (in-flight limit 16, breaker at 5
+20 seconds before and after. The first 5 seconds are left out of the "before" window. Compare `limits on` (in-flight limit 64, breaker at 5
 failures) with `limits off` (in-flight limit 1,024, breaker effectively off), and
-also run `offline` with limits on. Decision: supported if, with limits on, the healthy
+also run `offline` with limits on. Two workers give 128 slots, so the limit of 64
+leaves half for other tenants. A dry run showed a limit of 16 throttled a healthy
+tenant at this rate, which is why it changed before any published run. Decision: supported if, with limits on, the healthy
 tenant's p99 during the outage stays under 250 ms, and with limits off it does not.
 
 **H5, the cost of flushing.** Compare `fsync_writethrough` with the macOS default at

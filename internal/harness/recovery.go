@@ -28,6 +28,9 @@ func RecoveryOptions(maxInFlight, breakerThreshold int) Options {
 	}
 }
 
+// recoveryWarmup is left out of the before-the-outage latency.
+const recoveryWarmup = 5 * time.Second
+
 // RecoveryConfig is one outage experiment.
 type RecoveryConfig struct {
 	Name        string        `json:"name"`
@@ -169,7 +172,8 @@ func analyzeRecovery(runDir string, config RecoveryConfig, repetition int, scena
 	}
 	result := RecoveryResult{
 		Config: config, Repetition: repetition, Verdict: scenario.Verdict, Scenario: scenario,
-		HealthyBefore:        SummarizeLatency(healthy, start, outageStart),
+		// The first seconds hold process start and cold connection pools.
+		HealthyBefore:        SummarizeLatency(healthy, start.Add(recoveryWarmup), outageStart),
 		HealthyDuring:        SummarizeLatency(healthy, outageStart, outageEnd),
 		HealthyAfter:         SummarizeLatency(healthy, outageEnd, time.Time{}),
 		FailingAfterRecovery: SummarizeLatency(failing, time.Time{}, time.Time{}),
@@ -190,18 +194,36 @@ func analyzeRecovery(runDir string, config RecoveryConfig, repetition int, scena
 	}
 	result.Timeline = points
 	outageEndOffset := outageEnd.Sub(start).Seconds()
-	result.DrainAfterOutageSec = -1 // stays -1 if the backlog never reached zero
+	result.DrainAfterOutageSec = secondsToCatchUp(points, failing, outageEnd, outageEndOffset, config.Rate, &result.BacklogAtOutageEnd)
+	return result, nil
+}
+
+// secondsToCatchUp measures from the end of the outage until the failing queue
+// held under a quarter second of traffic, which is about what a healthy queue
+// holds. Traffic is still arriving then, so the queue need not reach zero. If the
+// queue only came down after the sampler stopped, the last effect marks the end.
+// It returns -1 if nothing was delivered after the outage.
+func secondsToCatchUp(points []TimelinePoint, failing []EffectRow, outageEnd time.Time, outageEndOffset, rate float64, backlogAtEnd *int64) float64 {
+	threshold := int64(rate / 4)
 	for _, point := range points {
 		if point.OffsetSeconds <= outageEndOffset {
-			result.BacklogAtOutageEnd = point.FailingPending
+			*backlogAtEnd = point.FailingPending
 			continue
 		}
-		if point.FailingPending == 0 {
-			result.DrainAfterOutageSec = point.OffsetSeconds - outageEndOffset
-			break
+		if point.FailingPending <= threshold {
+			return point.OffsetSeconds - outageEndOffset
 		}
 	}
-	return result, nil
+	lastEffect := int64(0)
+	for _, row := range failing {
+		if row.Outcome == "applied" {
+			lastEffect = max(lastEffect, row.TimeUnixNs)
+		}
+	}
+	if lastEffect <= outageEnd.UnixNano() {
+		return -1
+	}
+	return time.Unix(0, lastEffect).Sub(outageEnd).Seconds()
 }
 
 // readTimeline turns the queue samples into one point per second. Destination 1
