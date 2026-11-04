@@ -35,14 +35,17 @@ event. The digest is the SHA-256 of the raw request body.
 | Header | Meaning |
 |---|---|
 | `Hook-Tenant` | Tenant ID. |
-| `Hook-Event-Id` | Event ID, chosen by the source. At most 200 characters. |
+| `Hook-Event-Id` | Event ID, chosen by the source. |
 | `Hook-Event-Type` | Event type, for example `receipt.forwarded`. |
 | `Hook-Timestamp` | Unix seconds when the request was signed. |
 | `Hook-Signature` | `v1=` followed by a hex HMAC-SHA256. |
 
-The signed string is the following values joined by a `.` character:
-timestamp, tenant, source, event ID, event type and the hex body digest. The
-key is the source's signing secret. Signatures compare in constant time. A
+The signed string is the following values joined by newlines: timestamp,
+tenant, source, event ID, event type and the hex body digest. Newlines cannot
+appear in these values, so no two requests produce the same string. A `.` would
+not work: `receipt.forwarded` contains one, so an ID and type could trade
+characters without changing the string. IDs match `[A-Za-z0-9._:-]{1,200}`.
+The key is the source's signing secret. Signatures compare in constant time. A
 timestamp more than 300 seconds from the server clock is rejected. The body
 limit is 256 KiB.
 
@@ -164,7 +167,7 @@ Each outbound request carries these headers:
 | `Hook-Attempt` | Attempt number across the life of the delivery. |
 | `Hook-Tenant`, `Hook-Source`, `Hook-Event-Id`, `Hook-Event-Type` | Event identity. |
 | `Hook-Timestamp` | Unix seconds when this attempt was signed. |
-| `Hook-Signature` | `v1=` followed by a hex HMAC-SHA256 of `timestamp.delivery_key.hex_body_digest`, keyed with the destination secret. |
+| `Hook-Signature` | `v1=` followed by a hex HMAC-SHA256 of the timestamp, delivery key and hex body digest joined by newlines, keyed with the destination secret. |
 
 To get one effect per key, a receiver must do all of the following:
 
