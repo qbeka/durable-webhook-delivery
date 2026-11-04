@@ -98,6 +98,16 @@ TimeOut(w) ==
     /\ worker' = [worker EXCEPT ![w].phase = "failed"]
     /\ UNCHANGED <<state, token, nextToken, requests, answers, keySeen, ledger, unsaved, replays>>
 
+\* A request that is gone can never be answered, so its timeout always fires. It
+\* needs no fault budget: the fault was spent when the request or answer was lost.
+TimeOutWithNothingToWaitFor(w) ==
+    /\ worker[w].phase = "waiting"
+    /\ worker[w].tok \notin requests
+    /\ worker[w].tok \notin answers
+    /\ unsaved = "none"
+    /\ worker' = [worker EXCEPT ![w].phase = "failed"]
+    /\ UNCHANGED <<state, token, nextToken, requests, answers, keySeen, ledger, unsaved, faults, replays>>
+
 HoldsLease(w) ==
     IF FinishChecksToken THEN state = "leased" /\ token = worker[w].tok
                          ELSE TRUE
@@ -231,6 +241,7 @@ ReceiverCrash ==
 
 WorkerStep(w) ==
     \/ Claim(w) \/ Send(w) \/ ReadAnswer(w) \/ FinishSuccess(w) \/ FinishFailure(w)
+    \/ TimeOutWithNothingToWaitFor(w)
 
 Faulty ==
     \/ \E w \in Workers : TimeOut(w) \/ WorkerCrash(w)
@@ -251,7 +262,6 @@ Next ==
 \* postponed forever, which is what a retrying system assumes.
 Fairness ==
     /\ \A w \in Workers : WF_vars(WorkerStep(w))
-    /\ \A w \in Workers : WF_vars(TimeOut(w))
     /\ WF_vars(\E r \in requests : Receive(r))
     /\ WF_vars(\E r \in 1..nextToken : CommitRest(r))
     /\ WF_vars(ReapAbandonedLease)

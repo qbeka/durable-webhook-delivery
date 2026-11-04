@@ -154,6 +154,53 @@ def faults_section(root):
     return lines, scenarios
 
 
+def failover_section():
+    root = Path("results/failover")
+    lines = ["## H7, H8 and H9: replica failover", ""]
+    if not root.exists():
+        return lines + ["Not run.", ""]
+    lines += ["| Replication | Rep | Verdict | Acknowledged events lost | Repeated | Missing effects | Dead | Unfinished | Unavailable s | Contended |",
+              "|---|---:|---|---:|---:|---:|---:|---:|---:|---|"]
+    verdicts = {}
+    for mode in ("sync", "async"):
+        for path in sorted((root / f"failover-{mode}").glob("rep-*/failover.json")):
+            result = load(path)
+            report = result["scenario"]["reconcile"]
+            verdicts.setdefault(mode, []).append(result)
+            lines.append(f"| {mode} | {result['repetition']} | {result['verdict']} | {report['missing_events']:,} | "
+                         f"{report['repeated_effects']} | {report['missing_effects']} | {report['dead_letters']} | "
+                         f"{report['unfinished_jobs']} | {result['unavailable_seconds']:.2f} | "
+                         f"{'yes' if result['machine']['contended'] else 'no'} |")
+    sync = verdicts.get("sync", [])
+    control = verdicts.get("async", [])
+    h7 = len(sync) == 5 and all(r["verdict"] == "pass" for r in sync)
+    h8 = len(control) == 3 and all(r["verdict"] == "control_detected" for r in control)
+    lines += ["", f"H7 decision: {'supported' if h7 else 'not supported'}. H8 decision: the control "
+              f"{'lost acknowledged events in every repetition, so H7 is valid' if h8 else 'failed, so H7 is invalid'}.", ""]
+    cost = repetitions(root / "replication-cost-r1000-w4")
+    if cost:
+        lines += ["H9, the cost at 1,000 events per second with 4 workers. p99 with synchronous replication: "
+                  f"{latency_cell(cost, 'p99_ms')} ms. p50: {latency_cell(cost, 'p50_ms')} ms. "
+                  "Compare the 4 worker, 1,000 rung above. Both clusters share one drive, so this is an upper bound.", ""]
+    return lines
+
+
+def spec_section():
+    path = Path("results/spec/tlc.json")
+    lines = ["## The formal model", ""]
+    if not path.exists():
+        return lines + ["Not run.", ""]
+    lines += ["TLC checked `spec/DeliveryLease.tla`. The design must pass, and each control must fail.", "",
+              "| Check | Expected | Found | Distinct states | Passed |", "|---|---|---|---:|---|"]
+    for row in load(path):
+        expected = f"violates {row['expected_violation']}" if row["expected_violation"] else "no error"
+        found = "no error" if row["no_error"] else f"violates {row['violated']}"
+        states = f"{row['distinct_states']:,}" if row["distinct_states"] else "stopped at first counterexample"
+        lines.append(f"| {row['meaning']} | {expected} | {found} | {states} | {'yes' if row['passed'] else 'no'} |")
+    lines.append("")
+    return lines
+
+
 def generator_section(root):
     path = root / "generator" / "generator.json"
     lines = ["## The generator's own limit", ""]
@@ -185,7 +232,7 @@ def main():
     lines += target + ladder
     if best:
         lines += ["Highest sustained rate: " + ", ".join(f"{w} worker{'s' if w > 1 else ''}: {r:,.0f} per second" for w, r in sorted(best.items())) + ".", ""]
-    lines += recovery + flush_section(root) + faults + generator_section(root)
+    lines += recovery + flush_section(root) + faults + failover_section() + spec_section() + generator_section(root)
     Path("docs/report.md").write_text("\n".join(lines))
     print("\n".join(lines))
     json_path = root / "summary.json"
