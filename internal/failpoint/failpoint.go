@@ -2,8 +2,8 @@
 //
 // HOOK_FAILPOINT holds one rule:
 //
-//	before_send@5        kill this process on the 5th hit of before_send
-//	lease_stall@3=2500ms sleep for 2.5 seconds on the 3rd hit of lease_stall
+//	before_send@5           kill this process on the 5th hit of before_send
+//	after_response@3=2500ms sleep for 2.5 seconds on the 3rd hit of after_response
 //
 // With the variable unset, Hit is one atomic load and does nothing.
 package failpoint

@@ -162,7 +162,6 @@ func (w *Worker) deliver(job store.Job, claimedAt time.Time) {
 		// Claiming took too long to send safely. Leave the lease to expire.
 		return
 	}
-	failpoint.Hit("lease_stall") // after the check, so a stalled worker still sends
 	failpoint.Hit("before_send")
 
 	requestDeadline := time.Now().Add(w.config.RequestTimeout)
