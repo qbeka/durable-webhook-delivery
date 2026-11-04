@@ -2,7 +2,9 @@ package harness
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/qbeka/durable-webhook-delivery/internal/receiver"
@@ -16,6 +18,60 @@ const (
 	faultRate     = 300  // events per second, per route
 	faultDeadline = 2 * time.Minute
 )
+
+// Evidence checks. Each one names what a working fault must leave behind.
+
+func expiredLeases(result Result) error {
+	if result.Reconcile.ExpiredLeases == 0 {
+		return errors.New("no lease expired")
+	}
+	return nil
+}
+
+// duplicateAnswers proves a resend reached a receiver that had already committed.
+func duplicateAnswers(result Result) error {
+	if result.Outcomes["healthy"]["duplicate"] == 0 {
+		return errors.New("the receiver never answered duplicate")
+	}
+	return nil
+}
+
+func allOf(checks ...func(Result) error) func(Result) error {
+	return func(result Result) error {
+		return errors.Join(slices.Collect(func(yield func(error) bool) {
+			for _, check := range checks {
+				if err := check(result); err != nil && !yield(err) {
+					return
+				}
+			}
+		})...)
+	}
+}
+
+func staleAttempts(result Result) error {
+	if result.Reconcile.StaleAttempts == 0 {
+		return errors.New("no finish arrived after its lease")
+	}
+	return nil
+}
+
+func senderRetried(result Result) error {
+	for _, summary := range result.Load {
+		if summary.RetriedRequests > 0 {
+			return nil
+		}
+	}
+	return errors.New("no ingress request needed a retry")
+}
+
+func injectedStatus(status int) func(Result) error {
+	return func(result Result) error {
+		if result.Outcomes["healthy"][fmt.Sprintf("injected_%d", status)] == 0 {
+			return fmt.Errorf("no request was answered %d", status)
+		}
+		return nil
+	}
+}
 
 func (e *Env) baseSpec(name, fault string) Spec {
 	return Spec{
@@ -43,6 +99,7 @@ func (e *Env) ControlIdempotent() Spec {
 	spec := e.baseSpec("control_idempotent", "response lost after the receiver commits, reference receiver")
 	spec.Declared = map[string]int{"dropped_responses": drops}
 	spec.Inject = dropResponses(drops)
+	spec.Evidence = duplicateAnswers
 	return spec
 }
 
@@ -64,6 +121,7 @@ func (e *Env) KillBeforeSend() Spec {
 	spec := e.baseSpec("kill_before_send", "SIGKILL after the claim commits, before the request is sent")
 	spec.Declared = map[string]int{"worker_crashes": crashes}
 	spec.Inject = workerCrashes("before_send", crashes, nil)
+	spec.Evidence = expiredLeases
 	return spec
 }
 
@@ -75,6 +133,7 @@ func (e *Env) KillDuringRequest() Spec {
 	spec.Inject = workerCrashes("request_written", crashes, &receiver.FaultPlan{
 		DelayCount: 1_000_000, DelayBeforeCommit: 150 * time.Millisecond,
 	})
+	spec.Evidence = allOf(expiredLeases, duplicateAnswers)
 	return spec
 }
 
@@ -85,6 +144,7 @@ func (e *Env) KillAfterCommitBeforeAck() Spec {
 	spec := e.baseSpec("kill_after_commit_before_ack", "SIGKILL after the receiver committed and answered, before the worker records it")
 	spec.Declared = map[string]int{"worker_crashes": crashes}
 	spec.Inject = workerCrashes("after_response", crashes, nil)
+	spec.Evidence = allOf(expiredLeases, duplicateAnswers)
 	return spec
 }
 
@@ -118,6 +178,7 @@ func (e *Env) TimeoutThenLateCommit() Spec {
 	requests := e.scaled(40)
 	spec := e.baseSpec("timeout_then_late_commit", "request times out, then the receiver commits anyway")
 	spec.Declared = map[string]int{"late_commits": requests}
+	spec.Evidence = duplicateAnswers
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		err := run.Cluster.SetFaults(run.Cluster.Routes[0], receiver.FaultPlan{
 			DelayCount: requests, DelayBeforeCommit: run.Cluster.Options.RequestTimeout + 500*time.Millisecond,
@@ -135,6 +196,7 @@ func (e *Env) EngineRestart() Spec {
 	cycles := e.scaled(3)
 	spec := e.baseSpec("engine_db_and_workers_restart", "immediate database stop with SIGKILL of all workers, then restart of both")
 	spec.Declared = map[string]int{"database_crashes": cycles, "worker_crashes": cycles * spec.Options.Workers}
+	spec.Evidence = senderRetried
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		cluster := run.Cluster
 		crashes := 0
@@ -197,6 +259,7 @@ func (e *Env) ReceiverCrash() Spec {
 	crashes := e.scaled(6)
 	spec := e.baseSpec("receiver_crash_after_commit", "receiver process dies right after its commit, before responding")
 	spec.Declared = map[string]int{"receiver_crashes": crashes}
+	spec.Evidence = duplicateAnswers
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		cluster := run.Cluster
 		route := cluster.Routes[0]
@@ -230,6 +293,7 @@ func (e *Env) LeaseExpiresWhileOldWorkerRuns() Spec {
 	pauses := e.scaled(3)
 	spec := e.baseSpec("lease_expires_old_worker_running", "SIGSTOP a worker past its lease with requests in flight, then SIGCONT")
 	spec.Declared = map[string]int{"worker_pauses": pauses}
+	spec.Evidence = allOf(expiredLeases, staleAttempts, duplicateAnswers)
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		cluster := run.Cluster
 		route := cluster.Routes[0]
@@ -263,24 +327,25 @@ func (e *Env) LeaseExpiresWhileOldWorkerRuns() Spec {
 	return spec
 }
 
-// StatusBurst returns a run of 429s or 500s.
+// StatusBurst makes the receiver answer one status for a length of time.
 func (e *Env) StatusBurst(status int) Spec {
-	requests := e.scaled(800)
+	burst := 4 * time.Second
 	name := fmt.Sprintf("status_burst_%d", status)
-	spec := e.baseSpec(name, fmt.Sprintf("receiver answers %d to %d requests in a row", status, requests))
-	spec.Declared = map[string]int{"injected_statuses": requests}
+	spec := e.baseSpec(name, fmt.Sprintf("receiver answers %d to everything for %v", status, burst))
+	spec.Declared = map[string]int{"status_bursts": 1}
+	spec.Evidence = injectedStatus(status)
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
-		if err := sleep(ctx, 3*time.Second); err != nil {
+		if err := sleep(ctx, 2*time.Second); err != nil {
 			return nil, err
 		}
-		plan := receiver.FaultPlan{StatusBurstCount: requests, StatusBurstCode: status}
+		plan := receiver.FaultPlan{StatusBurstFor: burst, StatusBurstCode: status}
 		if status == 429 {
 			plan.RetryAfterSeconds = 1
 		}
 		if err := run.Cluster.SetFaults(run.Cluster.Routes[0], plan); err != nil {
 			return nil, err
 		}
-		return map[string]int{"injected_statuses": requests}, nil
+		return map[string]int{"status_bursts": 1}, nil
 	}
 	return spec
 }

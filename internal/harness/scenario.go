@@ -61,6 +61,9 @@ type Spec struct {
 	// ControlExpectsRepeats, when above zero, marks a negative control: the run is
 	// valid only if the reconciler reports exactly this many repeated effects.
 	ControlExpectsRepeats int
+	// Evidence proves the fault reached the mechanism it targets. A scenario that
+	// passes without this proof tested nothing, so the run is invalid.
+	Evidence func(Result) error
 }
 
 // ScenarioRun is what Inject can see.
@@ -190,6 +193,11 @@ func verdict(spec Spec, result Result) (string, string) {
 	for name, declared := range spec.Declared {
 		if result.DeliveredFault[name] != declared {
 			return "invalid", fmt.Sprintf("fault %s delivered %d of %d declared", name, result.DeliveredFault[name], declared)
+		}
+	}
+	if spec.Evidence != nil {
+		if err := spec.Evidence(result); err != nil {
+			return "invalid", "the fault left no evidence: " + err.Error()
 		}
 	}
 	if !result.Drained {
