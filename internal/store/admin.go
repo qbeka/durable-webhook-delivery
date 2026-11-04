@@ -2,7 +2,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -84,15 +83,16 @@ func (s *Store) Unsubscribe(ctx context.Context, tenantID, sourceID, eventType s
 // lockSourceExclusive waits for every in-progress ingress on this source and
 // blocks new ones until commit. See the note in Ingest.
 func lockSourceExclusive(ctx context.Context, tx pgx.Tx, tenantID, sourceID string) error {
-	var found int
-	err := tx.QueryRow(ctx,
-		`SELECT 1 FROM sources WHERE tenant_id = $1 AND source_id = $2 FOR UPDATE`,
+	var found bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM sources WHERE tenant_id = $1 AND source_id = $2)
+		FROM pg_advisory_xact_lock(hashtextextended($1 || E'\n' || $2, 0))`,
 		tenantID, sourceID).Scan(&found)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrUnknownSource
-	}
 	if err != nil {
 		return fmt.Errorf("lock source: %w", err)
+	}
+	if !found {
+		return ErrUnknownSource
 	}
 	return nil
 }

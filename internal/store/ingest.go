@@ -113,16 +113,22 @@ func (s *Store) Ingest(ctx context.Context, event Event) (IngestResult, error) {
 	return result, nil
 }
 
+// lockSourceShared uses an advisory lock, not FOR SHARE on the source row. A row
+// lock writes to the page, so every ingress on a source would fight over one
+// buffer and create a multixact. An advisory lock lives in shared memory and
+// writes nothing. See docs/experiments.md. Two sources that hash to one key only
+// wait for each other during a subscription change, which is harmless.
 func lockSourceShared(ctx context.Context, tx pgx.Tx, tenantID, sourceID string) error {
-	var found int
-	err := tx.QueryRow(ctx,
-		`SELECT 1 FROM sources WHERE tenant_id = $1 AND source_id = $2 FOR SHARE`,
+	var found bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM sources WHERE tenant_id = $1 AND source_id = $2)
+		FROM pg_advisory_xact_lock_shared(hashtextextended($1 || E'\n' || $2, 0))`,
 		tenantID, sourceID).Scan(&found)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return ErrUnknownSource
-	}
 	if err != nil {
 		return fmt.Errorf("lock source: %w", err)
+	}
+	if !found {
+		return ErrUnknownSource
 	}
 	return nil
 }
