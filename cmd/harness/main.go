@@ -2,6 +2,8 @@
 //
 //	harness faults [--scale 0.1] [--only name] [--out dir]
 //	harness bench  [--rate 1000] [--duration 60s] [--workers 1] [--repetitions 3]
+//	harness recovery [--mode offline] [--outage 60s] [--max-in-flight 16] [--breaker 5]
+//	harness generator [--rates 1000,2000]
 package main
 
 import (
@@ -12,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -21,7 +24,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness faults|bench [flags]")
+		fmt.Fprintln(os.Stderr, "usage: harness faults|bench|recovery|generator [flags]")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -32,6 +35,10 @@ func main() {
 		err = runFaults(ctx, os.Args[2:])
 	case "bench":
 		err = runBench(ctx, os.Args[2:])
+	case "recovery":
+		err = runRecovery(ctx, os.Args[2:])
+	case "generator":
+		err = runGenerator(ctx, os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -136,4 +143,77 @@ func runBench(ctx context.Context, arguments []string) error {
 			result.DrainSeconds, result.Reconcile.Pass, result.Generator.SendLagP99Micros)
 	}
 	return manifest.Finish(filepath.Join(absolute, config.Name))
+}
+
+func runRecovery(ctx context.Context, arguments []string) error {
+	flags := flag.NewFlagSet("recovery", flag.ExitOnError)
+	outDir := flags.String("out", ".run/recovery", "output directory")
+	name := flags.String("name", "", "configuration name")
+	mode := flags.String("mode", "offline", "offline or slow")
+	rate := flags.Float64("rate", 300, "events per second per tenant")
+	lead := flags.Duration("lead", 20*time.Second, "normal traffic before the outage")
+	outage := flags.Duration("outage", time.Minute, "length of the outage")
+	trail := flags.Duration("trail", 20*time.Second, "traffic after the outage")
+	maxInFlight := flags.Int("max-in-flight", 16, "requests in flight per destination")
+	breaker := flags.Int("breaker", 5, "consecutive failures that open the breaker")
+	repetitions := flags.Int("repetitions", 3, "repetitions")
+	seed := flags.Uint64("seed", 8000, "workload seed, plus the repetition number")
+	_ = flags.Parse(arguments)
+
+	config := harness.RecoveryConfig{
+		Name: *name, Mode: *mode, Rate: *rate, Lead: *lead, Outage: *outage, Trail: *trail,
+		MaxInFlight: *maxInFlight, Breaker: *breaker, Seed: *seed,
+	}
+	if config.Name == "" {
+		config.Name = fmt.Sprintf("%s-limit%d-breaker%d", *mode, *maxInFlight, *breaker)
+	}
+	absolute, err := filepath.Abs(*outDir)
+	if err != nil {
+		return err
+	}
+	root := repositoryRoot()
+	manifest, err := harness.NewManifest(ctx, root, config.Name, *seed, config)
+	if err != nil {
+		return err
+	}
+	for repetition := 1; repetition <= *repetitions; repetition++ {
+		result, err := harness.RunRecovery(ctx, root, absolute, config, repetition)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s rep %d: %s healthy before p99 %.1fms during p99 %.1fms after p99 %.1fms peak backlog %d drain after outage %.1fs repeated=%d missing=%d dead=%d\n",
+			config.Name, repetition, result.Verdict, result.HealthyBefore.P99Ms, result.HealthyDuring.P99Ms, result.HealthyAfter.P99Ms,
+			result.PeakBacklog, result.DrainAfterOutageSec, result.Scenario.Reconcile.RepeatedEffects,
+			result.Scenario.Reconcile.MissingEffects, result.Scenario.Reconcile.DeadLetters)
+	}
+	return manifest.Finish(filepath.Join(absolute, config.Name))
+}
+
+func runGenerator(ctx context.Context, arguments []string) error {
+	flags := flag.NewFlagSet("generator", flag.ExitOnError)
+	outDir := flags.String("out", ".run/generator", "output directory")
+	rates := flags.String("rates", "1000,2000,4000,8000,16000", "offered rates to try")
+	duration := flags.Duration("duration", 20*time.Second, "length of each step")
+	seed := flags.Uint64("seed", 9000, "workload seed")
+	_ = flags.Parse(arguments)
+
+	absolute, err := filepath.Abs(*outDir)
+	if err != nil {
+		return err
+	}
+	var results []harness.GeneratorResult
+	for _, text := range strings.Split(*rates, ",") {
+		rate, err := strconv.ParseFloat(text, 64)
+		if err != nil {
+			return err
+		}
+		result, err := harness.MeasureGenerator(ctx, repositoryRoot(), absolute, rate, *duration, *seed)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("generator %.0f/s: achieved %.0f/s lag p50 %.0fus p99 %.0fus max %.0fus\n",
+			rate, result.AchievedRate, result.SendLagP50Us, result.SendLagP99Us, result.SendLagMaxUs)
+		results = append(results, result)
+	}
+	return harness.WriteJSON(filepath.Join(absolute, "generator.json"), results)
 }

@@ -225,6 +225,11 @@ func verdict(spec Spec, result Result) (string, string) {
 	return "pass", "every expected effect exists exactly once"
 }
 
+// WriteJSON writes indented JSON with a final newline.
+func WriteJSON(path string, value any) error {
+	return writeJSON(path, value)
+}
+
 func writeJSON(path string, value any) error {
 	content, err := json.MarshalIndent(value, "", "  ")
 	if err != nil {

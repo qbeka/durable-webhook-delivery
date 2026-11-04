@@ -388,6 +388,36 @@ func offlineInjector(outage time.Duration) func(context.Context, *ScenarioRun) (
 	}
 }
 
+// ReferenceParity repeats the reference benchmark's workload over HTTP with
+// several workers: 100,000 distinct keys, 20,000 duplicate inputs and 30 abrupt
+// worker exits, ten at each of three sites.
+func (e *Env) ReferenceParity() Spec {
+	const crashesPerSite = 10
+	spec := e.baseSpec("reference_parity", "the reference workload over HTTP: 30 abrupt worker exits across three sites")
+	spec.EventsPerRoute = e.scaled(100_000)
+	spec.Duplicates = e.scaled(20_000)
+	spec.Rate = 500
+	spec.DrainDeadline = 5 * time.Minute
+	crashes := e.scaled(crashesPerSite)
+	spec.Declared = map[string]int{"before_send": crashes, "request_written": crashes, "after_response": crashes}
+	spec.Evidence = allOf(expiredLeases, duplicateAnswers)
+	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
+		if err := sleep(ctx, 3*time.Second); err != nil {
+			return nil, err
+		}
+		delivered := map[string]int{}
+		for _, site := range []string{"before_send", "request_written", "after_response"} {
+			achieved, err := crashLoop(ctx, run, site, crashes, 20, 400)
+			if err != nil {
+				return nil, err
+			}
+			delivered[site] = achieved
+		}
+		return delivered, nil
+	}
+	return spec
+}
+
 // FaultSuite lists the scenarios of a full fault run, controls first.
 func (e *Env) FaultSuite() []Spec {
 	return []Spec{
@@ -404,5 +434,6 @@ func (e *Env) FaultSuite() []Spec {
 		e.StatusBurst(429),
 		e.StatusBurst(500),
 		e.DestinationOffline(20 * time.Second),
+		e.ReferenceParity(),
 	}
 }
