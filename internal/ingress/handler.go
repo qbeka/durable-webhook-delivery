@@ -29,6 +29,7 @@ func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /v1/sources/{source}/events", h.receive)
 	mux.HandleFunc("GET /healthz", h.health)
+	mux.HandleFunc("GET /metrics", h.metrics)
 	return mux
 }
 

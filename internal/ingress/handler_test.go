@@ -3,6 +3,7 @@ package ingress
 import (
 	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -103,6 +104,22 @@ func TestIngressStatusCodes(t *testing.T) {
 		if got := request.send(t, server); got != testCase.want {
 			t.Errorf("%s: got %d, want %d", testCase.name, got, testCase.want)
 		}
+	}
+}
+
+func TestMetricsReportDeliveriesInPrometheusFormat(t *testing.T) {
+	server := startIngress(t)
+	response, err := http.Get(server.URL + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != http.StatusOK || !strings.Contains(string(body), "# TYPE hook_deliveries gauge") {
+		t.Fatalf("%d: %s", response.StatusCode, body)
 	}
 }
 
