@@ -31,6 +31,9 @@ type Manifest struct {
 	Toolchain      map[string]string `json:"toolchain"`
 	Database       map[string]string `json:"database_settings"`
 	Files          map[string]string `json:"file_sha256,omitempty"`
+	// The machine is shared, so a result must say how busy it was. Numbers from a
+	// loaded machine are lower bounds on what the service can do alone.
+	BackgroundLoad map[string]string `json:"background_load"`
 }
 
 var manifestSettings = []string{
@@ -66,6 +69,10 @@ func NewManifest(ctx context.Context, root, name string, seed uint64, configurat
 		Toolchain: map[string]string{"go": runtime.Version(), "goos": runtime.GOOS, "goarch": runtime.GOARCH},
 		Database:  map[string]string{},
 	}
+	manifest.BackgroundLoad = map[string]string{
+		"load_average_at_start": command("sysctl", "-n", "vm.loadavg"),
+		"busiest_at_start":      busiestProcesses(),
+	}
 	manifest.WorkingTree = "clean"
 	if status := command("git", "-C", root, "status", "--porcelain"); status != "" {
 		manifest.WorkingTree = "dirty: " + strings.ReplaceAll(status, "\n", "; ")
@@ -95,6 +102,7 @@ func NewManifest(ctx context.Context, root, name string, seed uint64, configurat
 // Finish stamps the elapsed time, hashes the raw files and writes the manifest.
 func (m *Manifest) Finish(directory string) error {
 	m.ElapsedSeconds = time.Since(m.StartedAt).Seconds()
+	m.BackgroundLoad["load_average_at_end"] = command("sysctl", "-n", "vm.loadavg")
 	m.Files = map[string]string{}
 	err := filepath.WalkDir(directory, func(path string, entry os.DirEntry, err error) error {
 		if err != nil || entry.IsDir() || entry.Name() == "manifest.json" {
@@ -112,6 +120,14 @@ func (m *Manifest) Finish(directory string) error {
 		return err
 	}
 	return writeJSON(filepath.Join(directory, "manifest.json"), m)
+}
+
+// busiestProcesses names the top CPU users outside this project. Only the program
+// name is kept, so no command line or path from another project is recorded.
+func busiestProcesses() string {
+	output := command("ps", "-Aco", "pcpu=,comm=", "-r")
+	lines := strings.Split(output, "\n")
+	return strings.Join(lines[:min(5, len(lines))], "; ")
 }
 
 func fileDigest(path string) (string, error) {
