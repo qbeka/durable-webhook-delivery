@@ -106,6 +106,7 @@ func (e *Env) Run(ctx context.Context, spec Spec) (Result, error) {
 	}
 
 	samplerContext, stopSampler := context.WithCancel(ctx)
+	defer stopSampler()
 	samplerDone := make(chan struct{})
 	go func() {
 		defer close(samplerDone)

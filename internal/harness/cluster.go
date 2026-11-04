@@ -143,7 +143,7 @@ func (c *Cluster) binary(name string) string {
 
 func (c *Cluster) resetDatabases(ctx context.Context) error {
 	statements := map[string]string{
-		EngineURL: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`,
+		EngineURL:   `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`,
 		ReceiverURL: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`,
 	}
 	for url, statement := range statements {
