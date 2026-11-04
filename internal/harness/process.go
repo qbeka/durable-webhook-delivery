@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -18,6 +19,7 @@ type Process struct {
 	cmd  *exec.Cmd
 	log  *os.File
 	done chan error
+	over atomic.Bool
 }
 
 // startProcess launches a binary and captures its output.
@@ -35,15 +37,17 @@ func startProcess(runDir, name, binary string, arguments, environment []string) 
 	}
 	process := &Process{Name: name, cmd: cmd, log: log, done: make(chan error, 1)}
 	go func() {
-		process.done <- cmd.Wait()
+		err := cmd.Wait()
+		process.over.Store(true)
 		log.Close()
+		process.done <- err
 	}()
 	return process, nil
 }
 
 // Exited reports whether the process has ended.
 func (p *Process) Exited() bool {
-	return p.cmd.ProcessState != nil
+	return p.over.Load()
 }
 
 // Kill sends SIGKILL and waits for the process to end.
