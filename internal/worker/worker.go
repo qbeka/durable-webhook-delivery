@@ -20,6 +20,9 @@ import (
 	"github.com/qbeka/durable-webhook-delivery/internal/store"
 )
 
+// minFinishWindow is the least time a worker gets to record an outcome.
+const minFinishWindow = 3 * time.Second
+
 // Config holds a worker's settings. Durations are explicit about their unit
 // through time.Duration.
 type Config struct {
@@ -210,11 +213,18 @@ func (w *Worker) send(ctx context.Context, job store.Job) (status int, retryAfte
 	return response.StatusCode, response.Header.Get("Retry-After"), nil
 }
 
-// finish reports an outcome, retrying through a brief database failure. It stops
-// at the lease expiry, because after that the report would only be stale.
+// finish reports an outcome, retrying through a brief database failure.
+//
+// The window is at least minFinishWindow even when the lease has already ended.
+// A worker that was paused past its lease still has something true to record: the
+// attempt history keeps its report, marked stale, and the delivery does not change.
 func (w *Worker) finish(job store.Job, report store.Finish, leaseExpiry time.Time) {
+	giveUpAt := leaseExpiry
+	if earliest := time.Now().Add(minFinishWindow); giveUpAt.Before(earliest) {
+		giveUpAt = earliest
+	}
 	for {
-		ctx, cancel := context.WithDeadline(context.Background(), leaseExpiry)
+		ctx, cancel := context.WithDeadline(context.Background(), giveUpAt)
 		applied, err := w.store.FinishAttempt(ctx, job, report, w.config.Breaker)
 		cancel()
 		if err == nil {
@@ -223,8 +233,9 @@ func (w *Worker) finish(job store.Job, report store.Finish, leaseExpiry time.Tim
 			}
 			return
 		}
-		if time.Now().After(leaseExpiry) {
-			slog.Warn("could not record outcome before the lease ended",
+		if time.Now().After(giveUpAt) {
+			// Safe: the lease expires and the receiver dedupes the resend.
+			slog.Warn("could not record outcome",
 				"worker", w.config.WorkerID, "delivery", job.DeliveryKey, "outcome", report.Outcome, "error", err)
 			return
 		}

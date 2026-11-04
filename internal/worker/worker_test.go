@@ -310,6 +310,44 @@ func TestMultipleWorkersDrainAQueueWithoutRepeatingARequest(t *testing.T) {
 	}
 }
 
+// A worker paused past its lease must still leave its report in the history.
+func TestFinishAfterTheLeaseEndedIsRecordedAsStale(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	defer server.Close()
+	route := setUp(t, server.URL)
+	route.ingest(t, "evt")
+	ctx := context.Background()
+	config := testConfig("paused")
+
+	jobs, err := route.database.Claim(ctx, "paused", 1, 20*time.Millisecond, config.Breaker)
+	if err != nil || len(jobs) != 1 {
+		t.Fatalf("claim: %v %v", jobs, err)
+	}
+	time.Sleep(40 * time.Millisecond)
+	if _, err := route.database.ExpireLeases(ctx, 10, 5, time.Millisecond, time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+
+	engine, err := New(config, route.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	report := store.Finish{NextState: store.StateSucceeded, Outcome: "success", HTTPStatus: 200}
+	engine.finish(jobs[0], report, time.Now().Add(-time.Minute)) // the lease ended long ago
+
+	record, err := route.database.DeliveryHistory(ctx, jobs[0].DeliveryKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	attempt := record.Attempts[0]
+	if !attempt.Stale || attempt.Outcome == nil || *attempt.Outcome != "success" {
+		t.Fatalf("the report was lost: %+v", attempt)
+	}
+	if record.State != store.StatePending {
+		t.Fatalf("a stale report changed the delivery to %s", record.State)
+	}
+}
+
 func TestConfigRefusesATimeoutThatCouldOutliveTheLease(t *testing.T) {
 	config := testConfig("w")
 	config.RequestTimeout = config.Lease
