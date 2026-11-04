@@ -1,6 +1,7 @@
 // Command harness runs the fault scenarios and benchmarks.
 //
 //	harness faults [--scale 0.1] [--only name] [--out dir]
+//	harness bench  [--rate 1000] [--duration 60s] [--workers 1] [--repetitions 3]
 package main
 
 import (
@@ -20,7 +21,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness faults [flags]")
+		fmt.Fprintln(os.Stderr, "usage: harness faults|bench [flags]")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -29,6 +30,8 @@ func main() {
 	switch os.Args[1] {
 	case "faults":
 		err = runFaults(ctx, os.Args[2:])
+	case "bench":
+		err = runBench(ctx, os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -88,4 +91,49 @@ func runFaults(ctx context.Context, arguments []string) error {
 		return fmt.Errorf("%d scenarios did not pass", failed)
 	}
 	return nil
+}
+
+func runBench(ctx context.Context, arguments []string) error {
+	flags := flag.NewFlagSet("bench", flag.ExitOnError)
+	outDir := flags.String("out", ".run/bench", "output directory")
+	name := flags.String("name", "", "configuration name, derived from the flags when empty")
+	rate := flags.Float64("rate", 1000, "offered events per second")
+	duration := flags.Duration("duration", time.Minute, "length of the arrival schedule")
+	warmup := flags.Duration("warmup", 10*time.Second, "start of the schedule to leave out of the results")
+	workers := flags.Int("workers", 1, "worker processes")
+	concurrency := flags.Int("concurrency", 64, "requests in flight per worker")
+	maxInFlight := flags.Int("max-in-flight", 256, "requests in flight per destination")
+	repetitions := flags.Int("repetitions", 3, "repetitions of this configuration")
+	seed := flags.Uint64("seed", 7000, "workload seed, plus the repetition number")
+	drainDeadline := flags.Duration("drain-deadline", 2*time.Minute, "longest wait for the queue after the schedule ends")
+	_ = flags.Parse(arguments)
+
+	config := harness.BenchConfig{
+		Name: *name, Rate: *rate, Duration: *duration, Warmup: *warmup, PayloadBytes: 1024, Fanout: 1,
+		DrainDeadline: *drainDeadline, Seed: *seed,
+		Options: harness.BenchOptions(*workers, *concurrency, *maxInFlight),
+	}
+	if config.Name == "" {
+		config.Name = fmt.Sprintf("r%.0f-w%d", *rate, *workers)
+	}
+	absolute, err := filepath.Abs(*outDir)
+	if err != nil {
+		return err
+	}
+	root := repositoryRoot()
+	manifest, err := harness.NewManifest(ctx, root, config.Name, *seed, config)
+	if err != nil {
+		return err
+	}
+	for repetition := 1; repetition <= *repetitions; repetition++ {
+		result, err := harness.RunBench(ctx, root, absolute, config, repetition)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s rep %d: offered %.0f/s accepted %.0f/s completed %.0f/s errors %.4f%% slope %+.1f/s backlog %d effect %s ack p99 %.1fms drain %.1fs reconcile=%v genlag p99 %.0fus\n",
+			config.Name, repetition, result.OfferedRate, result.AcceptedRate, result.CompletedRate, 100*result.ErrorRate,
+			result.BacklogSlopePerSec, result.BacklogAtEnd, result.Latency, result.AckLatency.P99Ms,
+			result.DrainSeconds, result.Reconcile.Pass, result.Generator.SendLagP99Micros)
+	}
+	return manifest.Finish(filepath.Join(absolute, config.Name))
 }
