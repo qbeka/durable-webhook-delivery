@@ -36,9 +36,10 @@ func IngressSignature(secret string, unixSeconds int64, tenant, source, eventID,
 	return sign(secret, strconv.FormatInt(unixSeconds, 10), tenant, source, eventID, eventType, hex.EncodeToString(bodyDigest))
 }
 
-// DeliverySignature signs a request from a worker to a destination.
-func DeliverySignature(secret string, unixSeconds int64, deliveryKey string, bodyDigest []byte) string {
-	return sign(secret, strconv.FormatInt(unixSeconds, 10), deliveryKey, hex.EncodeToString(bodyDigest))
+// DeliverySignature signs a request from a worker to a destination. It covers
+// the event identity because a receiver writes those values to its ledger.
+func DeliverySignature(secret string, unixSeconds int64, deliveryKey, tenant, source, eventID, eventType string, bodyDigest []byte) string {
+	return sign(secret, strconv.FormatInt(unixSeconds, 10), deliveryKey, tenant, source, eventID, eventType, hex.EncodeToString(bodyDigest))
 }
 
 func sign(secret string, fields ...string) string {

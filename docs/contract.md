@@ -178,7 +178,7 @@ Each outbound request carries these headers:
 | `Hook-Attempt` | Attempt number across the life of the delivery. |
 | `Hook-Tenant`, `Hook-Source`, `Hook-Event-Id`, `Hook-Event-Type` | Event identity. |
 | `Hook-Timestamp` | Unix seconds when this attempt was signed. |
-| `Hook-Signature` | `v1=` followed by a hex HMAC-SHA256 of the timestamp, delivery key and hex body digest joined by newlines, keyed with the destination secret. |
+| `Hook-Signature` | `v1=` followed by a hex HMAC-SHA256 of the timestamp, delivery key, tenant, source, event ID, event type and hex body digest joined by newlines, keyed with the destination secret. |
 
 To get one effect per key, a receiver must do all of the following:
 

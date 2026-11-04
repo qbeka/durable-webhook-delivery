@@ -163,8 +163,9 @@ func (r *Receiver) authenticate(request *http.Request, body []byte) (delivery, i
 		return delivery{}, http.StatusUnauthorized, "bad signature"
 	}
 	key := header.Get("Hook-Delivery-Key")
+	tenantID, sourceID, eventID := header.Get("Hook-Tenant"), header.Get("Hook-Source"), header.Get("Hook-Event-Id")
 	digest := signing.BodyDigest(body)
-	expected := signing.DeliverySignature(r.Secret, unixSeconds, key, digest)
+	expected := signing.DeliverySignature(r.Secret, unixSeconds, key, tenantID, sourceID, eventID, header.Get("Hook-Event-Type"), digest)
 	if key == "" || !signing.Equal(expected, header.Get("Hook-Signature")) {
 		return delivery{}, http.StatusUnauthorized, "bad signature"
 	}
@@ -175,7 +176,7 @@ func (r *Receiver) authenticate(request *http.Request, body []byte) (delivery, i
 	attempt, _ := strconv.Atoi(header.Get("Hook-Attempt"))
 	return delivery{
 		key: key, attempt: attempt, digest: digest, receipt: receipt,
-		tenantID: header.Get("Hook-Tenant"), sourceID: header.Get("Hook-Source"), eventID: header.Get("Hook-Event-Id"),
+		tenantID: tenantID, sourceID: sourceID, eventID: eventID,
 	}, 0, ""
 }
 

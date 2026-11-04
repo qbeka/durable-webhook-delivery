@@ -212,7 +212,8 @@ func (w *Worker) send(ctx context.Context, job store.Job) (status int, retryAfte
 	header.Set("Hook-Event-Type", job.EventType)
 	header.Set("Hook-Payload-Sha256", hex.EncodeToString(job.PayloadSHA256))
 	header.Set("Hook-Timestamp", strconv.FormatInt(unixSeconds, 10))
-	header.Set("Hook-Signature", signing.DeliverySignature(job.Secret, unixSeconds, job.DeliveryKey, job.PayloadSHA256))
+	header.Set("Hook-Signature", signing.DeliverySignature(job.Secret, unixSeconds, job.DeliveryKey,
+		job.TenantID, job.SourceID, job.EventID, job.EventType, job.PayloadSHA256))
 
 	// RoundTrip, not http.Client: a client follows redirects, and a signed request
 	// must not go to an address nobody registered. A client also treats a 3xx with

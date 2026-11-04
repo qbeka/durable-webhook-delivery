@@ -116,7 +116,8 @@ func TestDeliverySendsASignatureTheReceiverCanVerify(t *testing.T) {
 		body, _ := io.ReadAll(r.Body)
 		unixSeconds, _ := strconv.ParseInt(r.Header.Get("Hook-Timestamp"), 10, 64)
 		digest := signing.BodyDigest(body)
-		expected := signing.DeliverySignature("whsec", unixSeconds, r.Header.Get("Hook-Delivery-Key"), digest)
+		expected := signing.DeliverySignature("whsec", unixSeconds, r.Header.Get("Hook-Delivery-Key"),
+			r.Header.Get("Hook-Tenant"), r.Header.Get("Hook-Source"), r.Header.Get("Hook-Event-Id"), r.Header.Get("Hook-Event-Type"), digest)
 		if signing.Equal(expected, r.Header.Get("Hook-Signature")) &&
 			r.Header.Get("Hook-Payload-Sha256") == hex.EncodeToString(digest) &&
 			r.Header.Get("Hook-Event-Id") == "evt" && r.Header.Get("Hook-Attempt") == "1" {

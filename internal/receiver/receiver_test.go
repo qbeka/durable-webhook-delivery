@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -38,6 +37,16 @@ func receiptBody(id string, cents int64) []byte {
 
 func post(t *testing.T, server *httptest.Server, key string, body []byte, secret string) *http.Response {
 	t.Helper()
+	response, err := http.DefaultClient.Do(signedRequest(t, server, key, body, secret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { response.Body.Close() })
+	return response
+}
+
+func signedRequest(t *testing.T, server *httptest.Server, key string, body []byte, secret string) *http.Request {
+	t.Helper()
 	request, err := http.NewRequest(http.MethodPost, server.URL+"/webhooks/receipts", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
@@ -49,13 +58,10 @@ func post(t *testing.T, server *httptest.Server, key string, body []byte, secret
 	request.Header.Set("Hook-Source", "source")
 	request.Header.Set("Hook-Event-Id", "evt-"+key)
 	request.Header.Set("Hook-Timestamp", strconv.FormatInt(unixSeconds, 10))
-	request.Header.Set("Hook-Signature", signing.DeliverySignature(secret, unixSeconds, key, signing.BodyDigest(body)))
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { response.Body.Close() })
-	return response
+	request.Header.Set("Hook-Event-Type", "receipt.forwarded")
+	request.Header.Set("Hook-Signature", signing.DeliverySignature(secret, unixSeconds, key,
+		"tenant", "source", "evt-"+key, "receipt.forwarded", signing.BodyDigest(body)))
+	return request
 }
 
 func ledgerRows(t *testing.T, handler *Receiver, key string) int {
@@ -140,6 +146,26 @@ func TestBadSignatureWritesNothing(t *testing.T) {
 	}
 }
 
+// The ledger stores these headers, so changing one must break the signature.
+func TestChangedIdentityHeaderIsRefused(t *testing.T) {
+	handler, server := startReceiver(t, ModeIdempotent)
+	for _, name := range []string{"Hook-Tenant", "Hook-Source", "Hook-Event-Id", "Hook-Event-Type"} {
+		request := signedRequest(t, server, "key", receiptBody("r1", 100), testSecret)
+		request.Header.Set(name, "someone-else")
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+		if response.StatusCode != http.StatusUnauthorized {
+			t.Errorf("%s: got %d", name, response.StatusCode)
+		}
+	}
+	if got := ledgerRows(t, handler, "key"); got != 0 {
+		t.Fatalf("a changed header reached the ledger: %d rows", got)
+	}
+}
+
 func TestNonReceiptBodyIsRefusedAsTerminal(t *testing.T) {
 	_, server := startReceiver(t, ModeIdempotent)
 	if response := post(t, server, "key", []byte("not json"), testSecret); response.StatusCode != http.StatusBadRequest {
@@ -166,14 +192,7 @@ func TestDroppedResponseLeavesTheEffectCommitted(t *testing.T) {
 	handler.Faults.Set(FaultPlan{DropResponseAfterCommit: 1})
 
 	body := receiptBody("r1", 1299)
-	request, err := http.NewRequest(http.MethodPost, server.URL+"/webhooks/receipts", bytes.NewReader(body))
-	if err != nil {
-		t.Fatal(err)
-	}
-	unixSeconds := time.Now().Unix()
-	request.Header.Set("Hook-Delivery-Key", "key")
-	request.Header.Set("Hook-Timestamp", fmt.Sprint(unixSeconds))
-	request.Header.Set("Hook-Signature", signing.DeliverySignature(testSecret, unixSeconds, "key", signing.BodyDigest(body)))
+	request := signedRequest(t, server, "key", body, testSecret)
 	if _, err := http.DefaultClient.Do(request); err == nil {
 		t.Fatal("the sender should see a failed request")
 	}
