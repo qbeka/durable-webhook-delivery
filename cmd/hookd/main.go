@@ -89,6 +89,7 @@ func runWorker(ctx context.Context, arguments []string) error {
 	pollInterval := flags.Duration("poll-interval", 10*time.Millisecond, "wait after finding no work")
 	reapInterval := flags.Duration("reap-interval", time.Second, "how often to look for expired leases")
 	maxAttempts := flags.Int("max-attempts", 12, "attempts before a delivery goes dead")
+	maxAge := flags.Duration("max-age", 72*time.Hour, "age at which a delivery goes dead")
 	retryBase := flags.Duration("retry-base", time.Second, "ceiling of the first retry delay")
 	retryCap := flags.Duration("retry-cap", 5*time.Minute, "largest retry delay")
 	breakerThreshold := flags.Int("breaker-threshold", 5, "consecutive failures before the breaker opens")
@@ -106,7 +107,7 @@ func runWorker(ctx context.Context, arguments []string) error {
 		WorkerID: *workerID, Concurrency: *concurrency,
 		Lease: *lease, LeaseMargin: *leaseMargin, RequestTimeout: *requestTimeout,
 		PollInterval: *pollInterval, ReapInterval: *reapInterval, ReapBatch: 500,
-		Policy:  worker.Policy{MaxAttempts: *maxAttempts, RetryBase: *retryBase, RetryCap: *retryCap},
+		Policy:  worker.Policy{MaxAttempts: *maxAttempts, MaxAge: *maxAge, RetryBase: *retryBase, RetryCap: *retryCap},
 		Breaker: store.BreakerConfig{FailureThreshold: *breakerThreshold, BaseDelay: *breakerBase, MaxDelay: *breakerCap},
 	}, database)
 	if err != nil {

@@ -22,7 +22,7 @@ func testConfig(id string) Config {
 		WorkerID: id, Concurrency: 8,
 		Lease: 2 * time.Second, LeaseMargin: 200 * time.Millisecond, RequestTimeout: time.Second,
 		PollInterval: 5 * time.Millisecond, ReapInterval: 50 * time.Millisecond, ReapBatch: 100,
-		Policy:  Policy{MaxAttempts: 4, RetryBase: 10 * time.Millisecond, RetryCap: 50 * time.Millisecond},
+		Policy:  Policy{MaxAttempts: 4, MaxAge: time.Hour, RetryBase: 10 * time.Millisecond, RetryCap: 50 * time.Millisecond},
 		Breaker: store.BreakerConfig{FailureThreshold: 100, BaseDelay: time.Millisecond, MaxDelay: time.Millisecond},
 	}
 }
@@ -224,6 +224,74 @@ func TestRedirectIsNotFollowed(t *testing.T) {
 	}
 }
 
+// A broken Location makes http.Client fail before any redirect hook runs, which
+// turned a terminal answer into a retried connection error.
+func TestRedirectWithABrokenLocationIsTerminal(t *testing.T) {
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.Header().Set("Location", "http://[broken")
+		w.WriteHeader(http.StatusFound)
+	}))
+	defer server.Close()
+	route := setUp(t, server.URL)
+	stop := route.run(t, testConfig("w"))
+	defer stop()
+
+	route.ingest(t, "evt")
+	route.waitFor(t, func(s store.DestinationStatus) bool { return s.Dead == 1 })
+	if requests.Load() != 1 {
+		t.Fatalf("got %d requests, want 1", requests.Load())
+	}
+}
+
+// One continuous outage must not use up a delivery's attempts, however long it
+// lasts, because the breaker's probes spend none.
+func TestOutageDoesNotSendAHealthyDeliveryToDeadLetters(t *testing.T) {
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	route := setUp(t, server.URL)
+	config := testConfig("w")
+	config.Breaker = store.BreakerConfig{FailureThreshold: 2, BaseDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond}
+	stop := route.run(t, config)
+	defer stop()
+
+	route.ingest(t, "evt")
+	for deadline := time.Now().Add(1500 * time.Millisecond); time.Now().Before(deadline); {
+		statuses, err := route.database.Status(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if statuses[0].Dead > 0 {
+			t.Fatalf("went dead after %d requests: %+v", requests.Load(), statuses[0])
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if requests.Load() <= int64(config.Policy.MaxAttempts) {
+		t.Fatalf("only %d requests, so the test proved nothing", requests.Load())
+	}
+}
+
+func TestAgeLimitEndsADeliveryThatOnlyGetsProbes(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+	route := setUp(t, server.URL)
+	config := testConfig("w")
+	config.Policy.MaxAge = 300 * time.Millisecond
+	config.Breaker = store.BreakerConfig{FailureThreshold: 1, BaseDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond}
+	stop := route.run(t, config)
+	defer stop()
+
+	route.ingest(t, "evt")
+	route.waitFor(t, func(s store.DestinationStatus) bool { return s.Dead == 1 })
+}
+
 func TestSlowRequestTimesOutBeforeItsLease(t *testing.T) {
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -248,6 +316,17 @@ func TestSlowRequestTimesOutBeforeItsLease(t *testing.T) {
 	}
 	if status.Dead != 1 {
 		t.Fatal("timeout was not recorded")
+	}
+	var key string
+	if err := route.database.QueryRowForTest(context.Background(), `SELECT delivery_key FROM deliveries`).Scan(&key); err != nil {
+		t.Fatal(err)
+	}
+	record, err := route.database.DeliveryHistory(context.Background(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if outcome := *record.Attempts[0].Outcome; outcome != "timeout" {
+		t.Fatalf("a slow request was recorded as %s", outcome)
 	}
 }
 
@@ -324,7 +403,7 @@ func TestFinishAfterTheLeaseEndedIsRecordedAsStale(t *testing.T) {
 		t.Fatalf("claim: %v %v", jobs, err)
 	}
 	time.Sleep(40 * time.Millisecond)
-	if _, err := route.database.ExpireLeases(ctx, 10, 5, time.Millisecond, time.Millisecond); err != nil {
+	if _, err := route.database.ExpireLeases(ctx, 10, 5, time.Hour, time.Millisecond, time.Millisecond); err != nil {
 		t.Fatal(err)
 	}
 

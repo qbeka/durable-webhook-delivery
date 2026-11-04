@@ -6,6 +6,7 @@ import (
 	_ "embed"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -39,6 +40,11 @@ func (s *Store) Close() {
 // Ping reports whether the database answers.
 func (s *Store) Ping(ctx context.Context) error {
 	return s.pool.Ping(ctx)
+}
+
+// QueryRowForTest runs one query. Tests in other packages use it to read state.
+func (s *Store) QueryRowForTest(ctx context.Context, query string, arguments ...any) pgx.Row {
+	return s.pool.QueryRow(ctx, query, arguments...)
 }
 
 // Migrate creates any missing tables and indexes. It is safe to run repeatedly.

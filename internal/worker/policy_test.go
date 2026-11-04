@@ -37,7 +37,7 @@ func TestFullJitterDelayStaysUnderTheExponentialCeiling(t *testing.T) {
 }
 
 func TestClassifyMatchesTheContractTable(t *testing.T) {
-	policy := Policy{MaxAttempts: 5, RetryBase: time.Millisecond, RetryCap: time.Second}
+	policy := Policy{MaxAttempts: 5, MaxAge: time.Hour, RetryBase: time.Millisecond, RetryCap: time.Second}
 	cases := []struct {
 		name      string
 		status    int
@@ -62,7 +62,7 @@ func TestClassifyMatchesTheContractTable(t *testing.T) {
 		{"refused", 0, errors.New("connection refused"), store.StatePending, "connection_error", true},
 	}
 	for _, testCase := range cases {
-		report := classify(policy, 1, testCase.status, testCase.err, "")
+		report := classify(policy, 1, 0, testCase.status, testCase.err, "")
 		if report.NextState != testCase.wantState || report.Outcome != testCase.wantLabel || report.CountsFailure != testCase.wantTrips {
 			t.Errorf("%s: got %+v", testCase.name, report)
 		}
@@ -70,27 +70,51 @@ func TestClassifyMatchesTheContractTable(t *testing.T) {
 }
 
 func TestRetryableFailureGoesDeadWhenAttemptsRunOut(t *testing.T) {
-	policy := Policy{MaxAttempts: 3, RetryBase: time.Millisecond, RetryCap: time.Second}
-	if report := classify(policy, 2, http.StatusInternalServerError, nil, ""); report.NextState != store.StatePending {
+	policy := Policy{MaxAttempts: 3, MaxAge: time.Hour, RetryBase: time.Millisecond, RetryCap: time.Second}
+	if report := classify(policy, 2, 0, http.StatusInternalServerError, nil, ""); report.NextState != store.StatePending {
 		t.Fatalf("attempt 2 of 3 should retry, got %s", report.NextState)
 	}
-	if report := classify(policy, 3, http.StatusInternalServerError, nil, ""); report.NextState != store.StateDead {
+	if report := classify(policy, 3, 0, http.StatusInternalServerError, nil, ""); report.NextState != store.StateDead {
 		t.Fatalf("attempt 3 of 3 should go dead, got %s", report.NextState)
 	}
 }
 
 func TestRetryAfterRaisesTheDelayUpToTheCap(t *testing.T) {
-	policy := Policy{MaxAttempts: 9, RetryBase: time.Millisecond, RetryCap: 10 * time.Second}
-	report := classify(policy, 1, http.StatusTooManyRequests, nil, "5")
+	policy := Policy{MaxAttempts: 9, MaxAge: time.Hour, RetryBase: time.Millisecond, RetryCap: 10 * time.Second}
+	report := classify(policy, 1, 0, http.StatusTooManyRequests, nil, "5")
 	if report.RetryDelay < 5*time.Second || report.RetryAfter != 5*time.Second {
 		t.Fatalf("Retry-After ignored: %+v", report)
 	}
-	report = classify(policy, 1, http.StatusTooManyRequests, nil, "99999")
+	report = classify(policy, 1, 0, http.StatusTooManyRequests, nil, "99999")
 	if report.RetryAfter != 10*time.Second {
 		t.Fatalf("Retry-After not capped: %+v", report)
 	}
-	report = classify(policy, 1, http.StatusTooManyRequests, nil, "Wed, 21 Oct 2026 07:28:00 GMT")
+	report = classify(policy, 1, 0, http.StatusTooManyRequests, nil, "9999999999999")
+	if report.RetryAfter != 10*time.Second {
+		t.Fatalf("a huge Retry-After must not overflow: %+v", report)
+	}
+	report = classify(policy, 1, 0, http.StatusTooManyRequests, nil, time.Now().Add(4*time.Second).UTC().Format(http.TimeFormat))
+	if report.RetryAfter < 2*time.Second || report.RetryAfter > 5*time.Second {
+		t.Fatalf("date form not read: %+v", report)
+	}
+	report = classify(policy, 1, 0, http.StatusTooManyRequests, nil, "soon")
 	if report.RetryAfter != 0 {
-		t.Fatalf("date form should be ignored: %+v", report)
+		t.Fatalf("an unreadable value should be ignored: %+v", report)
+	}
+}
+
+func TestAgeLimitEndsADeliveryThatStillHasAttempts(t *testing.T) {
+	policy := Policy{MaxAttempts: 100, MaxAge: time.Minute, RetryBase: time.Millisecond, RetryCap: time.Second}
+	if report := classify(policy, 0, time.Minute, http.StatusServiceUnavailable, nil, ""); report.NextState != store.StateDead {
+		t.Fatalf("got %+v", report)
+	}
+	if report := classify(policy, 0, time.Second, http.StatusServiceUnavailable, nil, ""); report.NextState != store.StatePending {
+		t.Fatalf("got %+v", report)
+	}
+}
+
+func TestFullJitterAcceptsADeliveryWithNoAttemptsSpent(t *testing.T) {
+	if delay := FullJitterDelay(0, time.Second, time.Minute, func() float64 { return 1 }); delay != time.Second {
+		t.Fatalf("got %v", delay)
 	}
 }

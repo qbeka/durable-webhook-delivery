@@ -24,6 +24,7 @@ type Job struct {
 	LeaseToken    string
 	Attempt       int // across the life of the delivery
 	BudgetUsed    int // since creation or the last replay
+	BudgetAge     time.Duration
 	DestinationID int64
 	URL           string
 	Secret        string
@@ -61,14 +62,18 @@ func (s *Store) Claim(ctx context.Context, workerID string, maxJobs int, leaseDu
 		}
 
 		// A destination recovering from an open breaker gets one probe at a time.
-		maxInFlight := destination.maxInFlight
+		// A probe tests the destination, not the delivery, so it spends no attempt.
+		// Otherwise a long outage would use up the budget of whichever deliveries
+		// were picked as probes and send healthy work to dead letters. The age
+		// limit still ends a delivery that only ever gets probes.
+		maxInFlight, attemptCost := destination.maxInFlight, 1
 		if destination.consecutiveFailures >= breaker.FailureThreshold {
-			maxInFlight = 1
+			maxInFlight, attemptCost = 1, 0
 		}
 
 		budget, tokensLeft, waitSeconds := applyRateLimit(destination, maxJobs)
 		if budget > 0 {
-			jobs, err = claimDeliveries(ctx, tx, destination.id, workerID, budget, maxInFlight, leaseDuration)
+			jobs, err = claimDeliveries(ctx, tx, destination.id, workerID, budget, maxInFlight, attemptCost, leaseDuration)
 			if err != nil {
 				return err
 			}
@@ -156,7 +161,7 @@ func applyRateLimit(destination claimedDestination, maxJobs int) (budget int, to
 // In-flight is counted from leased rows, never stored as a counter. A worker
 // that dies cannot leave a counter too high: its rows expire and the count
 // follows.
-func claimDeliveries(ctx context.Context, tx pgx.Tx, destinationID int64, workerID string, budget, maxInFlight int, leaseDuration time.Duration) ([]Job, error) {
+func claimDeliveries(ctx context.Context, tx pgx.Tx, destinationID int64, workerID string, budget, maxInFlight, attemptCost int, leaseDuration time.Duration) ([]Job, error) {
 	rows, err := tx.Query(ctx, `
 		WITH room AS (
 			SELECT GREATEST($4::int - count(*), 0) AS free
@@ -174,28 +179,31 @@ func claimDeliveries(ctx context.Context, tx pgx.Tx, destinationID int64, worker
 				lease_owner = $2,
 				lease_expires_at = clock_timestamp() + make_interval(secs => $5),
 				attempt_count = d.attempt_count + 1,
-				budget_used = d.budget_used + 1
+				budget_used = d.budget_used + $6
 			FROM picked WHERE d.id = picked.id
-			RETURNING d.id, d.delivery_key, d.lease_token, d.attempt_count, d.budget_used, d.event_row_id
+			RETURNING d.id, d.delivery_key, d.lease_token, d.attempt_count, d.budget_used, d.event_row_id,
+			          extract(epoch FROM clock_timestamp() - d.budget_started_at)::double precision AS budget_age_seconds
 		), history AS (
 			INSERT INTO delivery_attempts (delivery_id, attempt_number, lease_token, worker_id)
 			SELECT id, attempt_count, lease_token, $2 FROM claimed
 		)
-		SELECT c.id, c.delivery_key, c.lease_token::text, c.attempt_count, c.budget_used,
+		SELECT c.id, c.delivery_key, c.lease_token::text, c.attempt_count, c.budget_used, c.budget_age_seconds,
 		       $1::bigint, dest.url, dest.signing_secret,
 		       e.tenant_id, e.source_id, e.event_id, e.event_type, e.payload, e.payload_sha256
 		FROM claimed c
 		JOIN events e ON e.id = c.event_row_id
 		JOIN destinations dest ON dest.id = $1`,
-		destinationID, workerID, budget, maxInFlight, leaseDuration.Seconds())
+		destinationID, workerID, budget, maxInFlight, leaseDuration.Seconds(), attemptCost)
 	if err != nil {
 		return nil, fmt.Errorf("claim deliveries: %w", err)
 	}
 	jobs, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Job, error) {
 		var job Job
-		err := row.Scan(&job.DeliveryID, &job.DeliveryKey, &job.LeaseToken, &job.Attempt, &job.BudgetUsed,
+		var budgetAgeSeconds float64
+		err := row.Scan(&job.DeliveryID, &job.DeliveryKey, &job.LeaseToken, &job.Attempt, &job.BudgetUsed, &budgetAgeSeconds,
 			&job.DestinationID, &job.URL, &job.Secret,
 			&job.TenantID, &job.SourceID, &job.EventID, &job.EventType, &job.Payload, &job.PayloadSHA256)
+		job.BudgetAge = time.Duration(budgetAgeSeconds * float64(time.Second))
 		return job, err
 	})
 	if err != nil {

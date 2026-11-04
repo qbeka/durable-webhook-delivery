@@ -57,7 +57,7 @@ func (c Config) Validate() error {
 type Worker struct {
 	config      Config
 	store       *store.Store
-	client      *http.Client
+	transport   *http.Transport
 	completions chan completion
 }
 
@@ -74,11 +74,7 @@ func New(config Config, database *store.Store) (*Worker, error) {
 		config:      config,
 		store:       database,
 		completions: make(chan completion, config.Concurrency),
-		client: &http.Client{
-			Transport: transport,
-			// A signed request must not follow a redirect to an unregistered URL.
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		},
+		transport:   transport,
 	}, nil
 }
 
@@ -153,7 +149,7 @@ func (w *Worker) reapLoop(ctx context.Context) {
 		// clear in one pass rather than one batch per tick.
 		for {
 			expired, err := w.store.ExpireLeases(ctx, w.config.ReapBatch, w.config.Policy.MaxAttempts,
-				w.config.Policy.RetryBase, w.config.Policy.RetryCap)
+				w.config.Policy.MaxAge, w.config.Policy.RetryBase, w.config.Policy.RetryCap)
 			if err != nil {
 				if ctx.Err() == nil {
 					slog.Warn("lease expiry failed", "worker", w.config.WorkerID, "error", err)
@@ -189,7 +185,7 @@ func (w *Worker) deliver(job store.Job, claimedAt time.Time) {
 	status, retryAfter, requestErr := w.send(ctx, job)
 	failpoint.Hit("after_response")
 
-	report := classify(w.config.Policy, job.BudgetUsed, status, requestErr, retryAfter)
+	report := classify(w.config.Policy, job.BudgetUsed, job.BudgetAge, status, requestErr, retryAfter)
 	w.completions <- completion{
 		Completion: store.Completion{Job: job, Report: report},
 		giveUpAt:   giveUpTime(leaseDeadline.Add(w.config.LeaseMargin)),
@@ -218,7 +214,11 @@ func (w *Worker) send(ctx context.Context, job store.Job) (status int, retryAfte
 	header.Set("Hook-Timestamp", strconv.FormatInt(unixSeconds, 10))
 	header.Set("Hook-Signature", signing.DeliverySignature(job.Secret, unixSeconds, job.DeliveryKey, job.PayloadSHA256))
 
-	response, err := w.client.Do(request)
+	// RoundTrip, not http.Client: a client follows redirects, and a signed request
+	// must not go to an address nobody registered. A client also treats a 3xx with
+	// a broken Location as a transport error, which would make a terminal answer
+	// look retryable.
+	response, err := w.transport.RoundTrip(request)
 	if err != nil {
 		return 0, "", err
 	}

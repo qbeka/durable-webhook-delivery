@@ -125,8 +125,14 @@ The delay before attempt `n + 1` is a uniform random value between zero and
 the delay to at least that value, up to the cap.
 
 Retries are per delivery. A destination that fails repeatedly also opens a
-breaker. While the breaker is open, no attempts are made and no attempts are
-spent, so an outage does not push healthy deliveries into dead letters.
+breaker. While the breaker is open, no requests are sent. When it reopens, one
+probe at a time tests the destination. A probe counts in the attempt history but
+spends none of the delivery's budget, so an outage does not push healthy
+deliveries into dead letters.
+
+A delivery therefore has two limits, and it goes dead at whichever comes first: 12
+attempts, or 72 hours. Both count from creation or the last replay. The age limit
+is what ends a delivery that only ever gets free probes.
 
 ### Slow requests and leases
 
@@ -195,9 +201,12 @@ a crash between them loses an effect or repeats one.
 | Event identity and digest | 30 days | Deleted with its deliveries and attempts. |
 | Unfinished deliveries | Forever | Pruning never touches an event with a `pending` or `leased` delivery. |
 
-The duplicate-detection window equals the identity retention. A source that
-resends an event after 30 days creates new work. Receivers should keep their
-delivery keys for at least as long as the identity retention.
+The duplicate-detection window equals the identity retention. After 30 days the
+engine no longer remembers an event, so a resend creates a new delivery. The
+delivery key comes from the identity, so that delivery has the same key as before.
+A receiver that kept its keys answers `duplicate`, or `409` if the body changed. A
+receiver that dropped its keys applies it again. Receivers should keep their keys
+for at least as long as the identity retention.
 
 ## Out of scope
 

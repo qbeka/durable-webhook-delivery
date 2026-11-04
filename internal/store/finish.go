@@ -96,7 +96,11 @@ func (s *Store) FinishAttempts(ctx context.Context, completions []Completion, br
 				error = NULLIF(r.error_text, ''),
 				stale = NOT EXISTS (SELECT 1 FROM finished f WHERE f.id = r.id)
 			FROM reports r
+			-- A report already recorded stays as it is. If the commit's answer was
+			-- lost, the worker sends the same report again, and that second copy
+			-- must not relabel an applied attempt as stale.
 			WHERE a.delivery_id = r.id AND a.lease_token = r.token
+			  AND (a.outcome IS NULL OR a.outcome = 'lease_expired')
 		), per_destination AS (
 			SELECT f.destination_id,
 			       count(*) FILTER (WHERE r.counts_failure) AS failures,
@@ -135,12 +139,12 @@ func (s *Store) FinishAttempts(ctx context.Context, completions []Completion, br
 }
 
 // ExpireLeases returns deliveries with expired leases to the queue, or moves them
-// to dead when their attempt budget is used up. The attempt counts, so a delivery
-// that keeps killing workers still ends.
+// to dead when their attempts or age limit run out. The attempt counts, so a
+// delivery that keeps killing workers still ends.
 //
 // The retry delay uses full jitter, computed per row in SQL. Without jitter,
 // everything held by one dead worker would retry at the same instant.
-func (s *Store) ExpireLeases(ctx context.Context, maxRows, maxAttempts int, retryBase, retryCap time.Duration) (int, error) {
+func (s *Store) ExpireLeases(ctx context.Context, maxRows, maxAttempts int, maxAge, retryBase, retryCap time.Duration) (int, error) {
 	var expired int
 	err := s.pool.QueryRow(ctx, `
 		WITH overdue AS (
@@ -158,18 +162,20 @@ func (s *Store) ExpireLeases(ctx context.Context, maxRows, maxAttempts int, retr
 			WHERE d.id = overdue.id AND a.delivery_id = d.id AND a.lease_token = d.lease_token
 		), released AS (
 			UPDATE deliveries d SET
-				state = CASE WHEN d.budget_used >= $2 THEN 'dead' ELSE 'pending' END,
-				finished_at = CASE WHEN d.budget_used >= $2 THEN clock_timestamp() END,
+				state = CASE WHEN d.budget_used >= $2 OR clock_timestamp() - d.budget_started_at >= make_interval(secs => $5)
+				             THEN 'dead' ELSE 'pending' END,
+				finished_at = CASE WHEN d.budget_used >= $2 OR clock_timestamp() - d.budget_started_at >= make_interval(secs => $5)
+				                   THEN clock_timestamp() END,
 				next_attempt_at = clock_timestamp() + make_interval(secs =>
 					random() * LEAST($4::double precision,
-					                 $3::double precision * power(2, LEAST(d.budget_used - 1, 30)))),
+					                 $3::double precision * power(2, LEAST(GREATEST(d.budget_used, 1) - 1, 30)))),
 				last_error = 'lease expired',
 				lease_token = NULL, lease_owner = NULL, lease_expires_at = NULL
 			FROM overdue WHERE d.id = overdue.id
 			RETURNING 1
 		)
 		SELECT count(*) FROM released`,
-		maxRows, maxAttempts, retryBase.Seconds(), retryCap.Seconds()).Scan(&expired)
+		maxRows, maxAttempts, retryBase.Seconds(), retryCap.Seconds(), maxAge.Seconds()).Scan(&expired)
 	if err != nil {
 		return 0, fmt.Errorf("expire leases: %w", err)
 	}

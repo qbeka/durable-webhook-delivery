@@ -264,10 +264,16 @@ func TestSubscriptionChangesAreOrderedAgainstIngress(t *testing.T) {
 		}()
 	}
 
+	// A change must not starve behind a stream of ingress. Row locks allowed that:
+	// FOR SHARE lockers overtake a waiting FOR UPDATE, and an independent reviewer
+	// measured waits of 30.7 seconds. The advisory lock queues fairly.
+	var slowestChange time.Duration
 	for round := range 40 {
+		changeStarted := time.Now()
 		if err := database.Subscribe(ctx, "tenant", "source", "*", toggled); err != nil {
 			t.Fatal(err)
 		}
+		slowestChange = max(slowestChange, time.Since(changeStarted))
 		if result := mustIngest(t, database, nextEvent()); result.Deliveries != 1 {
 			t.Fatalf("round %d: event after Subscribe returned got %d deliveries", round, result.Deliveries)
 		}
@@ -287,6 +293,9 @@ func TestSubscriptionChangesAreOrderedAgainstIngress(t *testing.T) {
 	}
 	close(stop)
 	background.Wait()
+	if slowestChange > 5*time.Second {
+		t.Fatalf("a subscription change waited %v behind ingress", slowestChange)
+	}
 }
 
 func ingestMany(t *testing.T, database *Store, prefix string, count int) {
@@ -400,7 +409,7 @@ func TestStaleFinishChangesNothingButIsRecorded(t *testing.T) {
 
 	first := claim(t, database, "old-worker", 1, 10*time.Millisecond)[0]
 	time.Sleep(30 * time.Millisecond)
-	expired, err := database.ExpireLeases(ctx, 10, 5, time.Millisecond, time.Millisecond)
+	expired, err := database.ExpireLeases(ctx, 10, 5, time.Hour, time.Millisecond, time.Millisecond)
 	if err != nil || expired != 1 {
 		t.Fatalf("expired=%d err=%v", expired, err)
 	}
@@ -517,7 +526,7 @@ func TestExpiredLeaseBudgetEndsInDead(t *testing.T) {
 			t.Fatalf("attempt %d: %+v", attempt, jobs)
 		}
 		time.Sleep(5 * time.Millisecond)
-		if _, err := database.ExpireLeases(ctx, 10, maxAttempts, time.Millisecond, time.Millisecond); err != nil {
+		if _, err := database.ExpireLeases(ctx, 10, maxAttempts, time.Hour, time.Millisecond, time.Millisecond); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -526,6 +535,77 @@ func TestExpiredLeaseBudgetEndsInDead(t *testing.T) {
 	}
 	if got := countRows(t, database, `SELECT count(*) FROM delivery_attempts WHERE outcome = 'lease_expired'`); got != maxAttempts {
 		t.Fatalf("got %d lease_expired attempts", got)
+	}
+}
+
+// If a finish commits and its answer is lost, the worker sends the same report
+// again. The second copy finds no lease, and must not relabel the attempt stale.
+func TestRepeatedFinishKeepsTheAttemptApplied(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 4)
+	mustIngest(t, database, testEvent("evt", "body"))
+	job := claim(t, database, "worker", 1, time.Minute)[0]
+	report := Finish{NextState: StateSucceeded, Outcome: "success", HTTPStatus: 200}
+	for range 2 {
+		if _, err := database.FinishAttempt(context.Background(), job, report, testBreaker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := countRows(t, database, `SELECT count(*) FROM delivery_attempts WHERE stale`); got != 0 {
+		t.Fatal("an applied attempt was relabelled stale")
+	}
+}
+
+func TestProbesSpendNoAttempts(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 8)
+	mustIngest(t, database, testEvent("evt", "body"))
+	ctx := context.Background()
+	_, err := database.pool.Exec(ctx, `UPDATE destinations SET consecutive_failures = $1`, testBreaker.FailureThreshold)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := claim(t, database, "worker", 1, time.Minute)[0]
+	if job.BudgetUsed != 0 || job.Attempt != 1 {
+		t.Fatalf("a probe counts as an attempt but spends no budget: %+v", job)
+	}
+}
+
+func TestExpiredLeasePastTheAgeLimitGoesDead(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 4)
+	mustIngest(t, database, testEvent("evt", "body"))
+	claim(t, database, "worker", 1, time.Millisecond)
+	time.Sleep(5 * time.Millisecond)
+	if _, err := database.ExpireLeases(context.Background(), 10, 100, time.Millisecond, time.Millisecond, time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	if got := countRows(t, database, `SELECT count(*) FROM deliveries WHERE state = 'dead'`); got != 1 {
+		t.Fatal("past its age limit, an expired lease must go dead")
+	}
+}
+
+func TestExpiredPayloadsDoNotUseUpTheReplayLimit(t *testing.T) {
+	database := openTestStore(t)
+	destinationID := addRoute(t, database, 8)
+	ingestMany(t, database, "evt", 3)
+	ctx := context.Background()
+	for _, job := range claim(t, database, "worker", 3, time.Minute) {
+		report := Finish{NextState: StateDead, Outcome: "terminal_status", HTTPStatus: 400}
+		if _, err := database.FinishAttempt(ctx, job, report, testBreaker); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, err := database.pool.Exec(ctx, `UPDATE events SET payload = NULL WHERE event_id IN ('evt-0', 'evt-1')`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := database.Replay(ctx, ReplayRequest{Operator: "o", Reason: "r", DestinationID: destinationID, State: StateDead, Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Requeued != 1 || result.PayloadExpired != 2 {
+		t.Fatalf("%+v", result)
 	}
 }
 

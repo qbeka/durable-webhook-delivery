@@ -152,7 +152,7 @@ type ReplayRequest struct {
 type ReplayResult struct {
 	Matched        int `json:"matched"`
 	Requeued       int `json:"requeued"`
-	PayloadExpired int `json:"payload_expired"` // finished, but the payload was pruned
+	PayloadExpired int `json:"payload_expired"` // finished, but the payload was pruned, outside the limit
 }
 
 func (r ReplayRequest) validate() error {
@@ -186,20 +186,22 @@ func (s *Store) Replay(ctx context.Context, request ReplayRequest) (ReplayResult
 		if err := takeOperatorLock(ctx, tx); err != nil {
 			return err
 		}
-		const matchSQL = `
-			SELECT d.id, e.payload IS NULL AS payload_gone
+		const finishedSQL = `
 			FROM deliveries d JOIN events e ON e.id = d.event_row_id
 			WHERE d.state IN ('succeeded', 'dead')
 			  AND (($1 <> '' AND d.delivery_key = $1)
-			    OR ($2 <> 0 AND d.destination_id = $2 AND d.state = $3))
-			ORDER BY d.id LIMIT $4`
-		err := tx.QueryRow(ctx, `
-			WITH matched AS (`+matchSQL+`)
-			SELECT count(*), count(*) FILTER (WHERE payload_gone) FROM matched`,
-			request.DeliveryKey, request.DestinationID, request.State, request.Limit,
-		).Scan(&result.Matched, &result.PayloadExpired)
+			    OR ($2 <> 0 AND d.destination_id = $2 AND d.state = $3))`
+		// A pruned payload cannot be sent, so those rows must not use up the limit.
+		const matchSQL = `SELECT d.id ` + finishedSQL + ` AND e.payload IS NOT NULL ORDER BY d.id LIMIT $4`
+		err := tx.QueryRow(ctx, `SELECT count(*) FROM (`+matchSQL+`) AS matched`,
+			request.DeliveryKey, request.DestinationID, request.State, request.Limit).Scan(&result.Matched)
 		if err != nil {
 			return fmt.Errorf("match deliveries: %w", err)
+		}
+		err = tx.QueryRow(ctx, `SELECT count(*) `+finishedSQL+` AND e.payload IS NULL`,
+			request.DeliveryKey, request.DestinationID, request.State).Scan(&result.PayloadExpired)
+		if err != nil {
+			return fmt.Errorf("count expired payloads: %w", err)
 		}
 		if request.DryRun {
 			return nil
@@ -208,9 +210,10 @@ func (s *Store) Replay(ctx context.Context, request ReplayRequest) (ReplayResult
 			WITH matched AS (`+matchSQL+` FOR UPDATE OF d SKIP LOCKED),
 			requeued AS (
 				UPDATE deliveries d SET
-					state = 'pending', budget_used = 0, next_attempt_at = clock_timestamp(),
+					state = 'pending', budget_used = 0, budget_started_at = clock_timestamp(),
+					next_attempt_at = clock_timestamp(),
 					finished_at = NULL, last_error = NULL
-				FROM matched WHERE d.id = matched.id AND NOT matched.payload_gone
+				FROM matched WHERE d.id = matched.id
 				RETURNING 1
 			)
 			SELECT count(*) FROM requeued`,

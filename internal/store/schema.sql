@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
                      CHECK (state IN ('pending', 'leased', 'succeeded', 'dead')),
     attempt_count    integer     NOT NULL DEFAULT 0, -- every attempt, across replays
     budget_used      integer     NOT NULL DEFAULT 0, -- attempts since creation or the last replay
+    budget_started_at timestamptz NOT NULL DEFAULT clock_timestamp(), -- the age limit counts from here
     next_attempt_at  timestamptz NOT NULL DEFAULT now(),
     lease_token      uuid,
     lease_owner      text,
