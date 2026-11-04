@@ -1,0 +1,18 @@
+.PHONY: build test up down clean
+
+build:
+	go build -o bin/ ./cmd/...
+
+up:
+	scripts/pg.sh up
+
+down:
+	scripts/pg.sh down
+
+clean:
+	scripts/pg.sh destroy
+	rm -rf bin .run
+
+test:
+	go vet ./...
+	go test ./...
