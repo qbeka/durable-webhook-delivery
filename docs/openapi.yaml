@@ -1,0 +1,64 @@
+openapi: 3.1.0
+info:
+  title: Durable Webhook Delivery
+  version: 1.0.0
+  description: >
+    Ingress API. A 2xx response means the event and all its deliveries are durably
+    committed. docs/contract.md holds the full rules.
+paths:
+  /v1/sources/{source}/events:
+    post:
+      summary: Send an event
+      operationId: sendEvent
+      parameters:
+        - { name: source, in: path, required: true, schema: { $ref: "#/components/schemas/Id" } }
+        - { name: Hook-Tenant, in: header, required: true, schema: { $ref: "#/components/schemas/Id" } }
+        - { name: Hook-Event-Id, in: header, required: true, schema: { $ref: "#/components/schemas/Id" }, description: Reuse this value when you retry. }
+        - { name: Hook-Event-Type, in: header, required: true, schema: { $ref: "#/components/schemas/Id" } }
+        - { name: Hook-Timestamp, in: header, required: true, schema: { type: integer, format: int64 }, description: Unix seconds. Must be within 300 seconds of the server clock. }
+        - name: Hook-Signature
+          in: header
+          required: true
+          description: "`v1=` and a hex HMAC-SHA256 of the timestamp, tenant, source, event ID, event type and hex body digest, joined by newlines."
+          schema: { type: string, pattern: "^v1=[0-9a-f]{64}$" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, description: Any body up to 256 KiB. It is stored and forwarded byte for byte. }
+      responses:
+        "202": { description: First commit of this event., content: { application/json: { schema: { $ref: "#/components/schemas/Answer" } } } }
+        "200": { description: Already committed with the same type and body., content: { application/json: { schema: { $ref: "#/components/schemas/Answer" } } } }
+        "409": { description: Already committed with a different type or body. The stored event did not change., content: { application/json: { schema: { $ref: "#/components/schemas/Answer" } } } }
+        "400": { description: A header is missing or invalid. }
+        "401": { description: The signature, timestamp or source is wrong. }
+        "413": { description: The body is over 256 KiB. }
+        "503":
+          description: The database is unavailable. Retry with the same event ID.
+          headers: { Retry-After: { schema: { type: integer } } }
+  /healthz:
+    get:
+      summary: Check the database connection
+      operationId: health
+      responses:
+        "200": { description: The database answers. }
+        "503": { description: The database does not answer. }
+  /metrics:
+    get:
+      summary: Delivery state in the Prometheus text format
+      operationId: metrics
+      responses:
+        "200": { description: Gauges for deliveries by state, oldest pending age and breaker state. }
+        "503": { description: The database does not answer. }
+components:
+  schemas:
+    Id: { type: string, pattern: "^[A-Za-z0-9._:-]{1,200}$" }
+    Answer:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [accepted, duplicate, conflict] }
+        event_id: { type: string }
+        deliveries: { type: integer, description: Fan-out count on first commit. }
+        received_sha256: { type: string }
+        stored_sha256: { type: string }
