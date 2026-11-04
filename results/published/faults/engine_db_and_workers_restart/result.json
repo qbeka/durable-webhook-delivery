@@ -1,0 +1,99 @@
+{
+  "scenario": "engine_db_and_workers_restart",
+  "fault": "immediate database stop with SIGKILL of all workers, then restart of both",
+  "options": {
+    "workers": 3,
+    "worker_concurrency": 32,
+    "worker_max_connections": 16,
+    "lease_ns": 3000000000,
+    "lease_margin_ns": 500000000,
+    "request_timeout_ns": 1000000000,
+    "poll_interval_ns": 10000000,
+    "reap_interval_ns": 500000000,
+    "max_attempts": 60,
+    "retry_base_ns": 100000000,
+    "retry_cap_ns": 2000000000,
+    "breaker_threshold": 8,
+    "breaker_base_ns": 200000000,
+    "breaker_cap_ns": 2000000000,
+    "max_in_flight": 64,
+    "receiver_max_connections": 64
+  },
+  "declared_faults": {
+    "database_crashes": 3,
+    "worker_crashes": 9
+  },
+  "delivered_faults": {
+    "database_crashes": 3,
+    "worker_crashes": 9
+  },
+  "load": [
+    {
+      "stream": {
+        "tenant_id": "healthy",
+        "source_id": "mail",
+        "seed": 2026,
+        "event_count": 6000,
+        "rate_per_second": 300,
+        "payload_bytes": 1024,
+        "start_unix_ns": 1793824194255504000
+      },
+      "duplicate_sends": 0,
+      "offered_sends": 6000,
+      "accepted": 5995,
+      "duplicates": 5,
+      "conflicts": 0,
+      "rejected": 0,
+      "timed_out": 0,
+      "retried_requests": 8966,
+      "elapsed_seconds": 20.215764,
+      "send_lag_p50_us": 1.676,
+      "send_lag_p99_us": 1830810.429,
+      "send_lag_max_us": 1953744.371
+    }
+  ],
+  "drain_deadline_seconds": 120,
+  "drain_seconds": 0.0361305,
+  "drained": true,
+  "reconcile": {
+    "expected_events": 6000,
+    "expected_effects": 6000,
+    "optional_events": 0,
+    "stored_events": 6000,
+    "ledger_rows": 6000,
+    "distinct_effects": 6000,
+    "attempts_total": 6095,
+    "stale_attempts": 0,
+    "expired_leases": 95,
+    "failed_attempts": 95,
+    "recorded_conflicts": 0,
+    "missing_events": 0,
+    "unexpected_events": 0,
+    "digest_mismatches": 0,
+    "missing_effects": 0,
+    "repeated_effects": 0,
+    "unexpected_effects": 0,
+    "field_mismatches": 0,
+    "dead_letters": 0,
+    "unfinished_jobs": 0,
+    "pass": true
+  },
+  "latency_ms": {
+    "healthy": {
+      "count": 6000,
+      "p50_ms": 3382.021333,
+      "p95_ms": 7374.656642,
+      "p99_ms": 9298.217645,
+      "max_ms": 9967.790141
+    }
+  },
+  "receiver_outcomes": {
+    "healthy": {
+      "applied": 6000,
+      "duplicate": 84
+    }
+  },
+  "verdict": "pass",
+  "verdict_reason": "every expected effect exists exactly once",
+  "elapsed_seconds": 38.148072
+}

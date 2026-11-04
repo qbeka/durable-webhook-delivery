@@ -1,0 +1,124 @@
+{
+  "scenario": "slow-limits-off/rep-1",
+  "delivery": {
+    "delivery_key": "dk_3dcdf4dd3bf346d3bd531ab0383bf842",
+    "state": "succeeded",
+    "attempt_count": 3,
+    "destination": "ledger",
+    "tenant_id": "flaky",
+    "source_id": "mail",
+    "event_id": "evt-8002-5816",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "66b2fb824ad7ced04054155e22c38386e570b75f0224e81196e98229b6a37b6e",
+    "received_at": "2026-11-04T16:34:29.142981-06:00",
+    "finished_at": "2026-11-04T16:35:29.853742-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "0acb87f7-f634-4d4b-9236-bfaf18b5e894",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T16:34:29.154756-06:00",
+        "finished_at": "2026-11-04T16:34:31.164098-06:00",
+        "outcome": "timeout",
+        "error": "request timed out",
+        "stale": false
+      },
+      {
+        "attempt_number": 2,
+        "lease_token": "a5c0a519-de79-40bc-8b53-cdb506122798",
+        "worker_id": "worker-1",
+        "claimed_at": "2026-11-04T16:34:37.701389-06:00",
+        "finished_at": "2026-11-04T16:34:39.723299-06:00",
+        "outcome": "timeout",
+        "error": "request timed out",
+        "stale": false
+      },
+      {
+        "attempt_number": 3,
+        "lease_token": "5ac3495c-a1f4-4f3d-8f77-4455fd071718",
+        "worker_id": "worker-1",
+        "claimed_at": "2026-11-04T16:35:29.830064-06:00",
+        "finished_at": "2026-11-04T16:35:29.865143-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 48376,
+  "steps": [
+    {
+      "at": "2026-11-04T16:34:29.142981-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-8002-5816 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T16:34:29.154756-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease 0acb87f7 for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T16:34:31.164098-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 1 recorded as timeout: request timed out"
+    },
+    {
+      "at": "2026-11-04T16:34:32.161012-06:00",
+      "actor": "receiver",
+      "action": "request_refused",
+      "detail": "attempt 1: delayed"
+    },
+    {
+      "at": "2026-11-04T16:34:32.169608-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 1: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T16:34:37.701389-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-1 committed lease a5c0a519 for attempt 2 before sending"
+    },
+    {
+      "at": "2026-11-04T16:34:39.723299-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 2 recorded as timeout: request timed out"
+    },
+    {
+      "at": "2026-11-04T16:34:40.709727-06:00",
+      "actor": "receiver",
+      "action": "request_refused",
+      "detail": "attempt 2: delayed"
+    },
+    {
+      "at": "2026-11-04T16:34:40.710322-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 2: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T16:35:29.830064-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-1 committed lease 5ac3495c for attempt 3 before sending"
+    },
+    {
+      "at": "2026-11-04T16:35:29.841266-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 3: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T16:35:29.865143-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 3 recorded as success with status 200"
+    }
+  ]
+}

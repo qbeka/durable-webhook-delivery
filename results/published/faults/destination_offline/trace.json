@@ -1,0 +1,106 @@
+{
+  "scenario": "destination_offline",
+  "delivery": {
+    "delivery_key": "dk_2707b18e62b46990ec7249b4384f6782",
+    "state": "succeeded",
+    "attempt_count": 3,
+    "destination": "ledger",
+    "tenant_id": "flaky",
+    "source_id": "mail",
+    "event_id": "evt-2027-1472",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "64707da4ec4361e95ca00ba5256f559b8fd33f0377e138ae256f5fb3767e6ee2",
+    "received_at": "2026-11-04T14:32:47.15946-06:00",
+    "finished_at": "2026-11-04T14:33:17.65223-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "ae1fdf9d-6c3a-4b63-ab2b-088ccee34dbb",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T14:32:47.184039-06:00",
+        "finished_at": "2026-11-04T14:32:47.208465-06:00",
+        "outcome": "connection_error",
+        "error": "dial tcp 127.0.0.1:9102: connect: connection refused",
+        "stale": false
+      },
+      {
+        "attempt_number": 2,
+        "lease_token": "a03bbddf-af02-4ba7-aec3-3f2cb0efce7b",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T14:33:07.695009-06:00",
+        "finished_at": "2026-11-04T14:33:08.764565-06:00",
+        "outcome": "timeout",
+        "error": "request timed out",
+        "stale": false
+      },
+      {
+        "attempt_number": 3,
+        "lease_token": "0b71aa5b-a554-461e-a8b6-2b88d9d42a3a",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T14:33:17.637449-06:00",
+        "finished_at": "2026-11-04T14:33:17.652499-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 62249,
+  "steps": [
+    {
+      "at": "2026-11-04T14:32:47.15946-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-2027-1472 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T14:32:47.184039-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease ae1fdf9d for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T14:32:47.208465-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 1 recorded as connection_error: dial tcp 127.0.0.1:9102: connect: connection refused"
+    },
+    {
+      "at": "2026-11-04T14:33:07.695009-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease a03bbddf for attempt 2 before sending"
+    },
+    {
+      "at": "2026-11-04T14:33:08.764565-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 2 recorded as timeout: request timed out"
+    },
+    {
+      "at": "2026-11-04T14:33:09.335563-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 2: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T14:33:17.637449-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease 0b71aa5b for attempt 3 before sending"
+    },
+    {
+      "at": "2026-11-04T14:33:17.649208-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 3: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T14:33:17.652499-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 3 recorded as success with status 200"
+    }
+  ]
+}

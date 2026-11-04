@@ -1,0 +1,90 @@
+{
+  "scenario": "timeout_then_late_commit",
+  "delivery": {
+    "delivery_key": "dk_ba7ed0c2d9d9221611271cbb4b0a4730",
+    "state": "succeeded",
+    "attempt_count": 2,
+    "destination": "ledger",
+    "tenant_id": "healthy",
+    "source_id": "mail",
+    "event_id": "evt-2026-0",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "7ca51f319e12c6a11680848685854b40f53b3761f53eb4950d46a89318162013",
+    "received_at": "2026-11-04T14:29:32.01524-06:00",
+    "finished_at": "2026-11-04T14:29:35.182286-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "d8e19f61-1ebb-4b7b-8c80-cf0d1261b14d",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T14:29:32.033926-06:00",
+        "finished_at": "2026-11-04T14:29:33.065416-06:00",
+        "outcome": "timeout",
+        "error": "request timed out",
+        "stale": false
+      },
+      {
+        "attempt_number": 2,
+        "lease_token": "1bd3a87a-f7e7-4c9d-a584-5b8df5ad2262",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T14:29:35.166478-06:00",
+        "finished_at": "2026-11-04T14:29:35.182483-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 29278,
+  "steps": [
+    {
+      "at": "2026-11-04T14:29:32.01524-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-2026-0 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T14:29:32.033926-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease d8e19f61 for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T14:29:33.065416-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 1 recorded as timeout: request timed out"
+    },
+    {
+      "at": "2026-11-04T14:29:33.54668-06:00",
+      "actor": "receiver",
+      "action": "request_refused",
+      "detail": "attempt 1: delayed"
+    },
+    {
+      "at": "2026-11-04T14:29:33.552108-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 1: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T14:29:35.166478-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease 1bd3a87a for attempt 2 before sending"
+    },
+    {
+      "at": "2026-11-04T14:29:35.179887-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 2: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T14:29:35.182483-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 2 recorded as success with status 200"
+    }
+  ]
+}

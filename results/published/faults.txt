@@ -1,0 +1,28 @@
+control_naive                      control_detected     87s drain=63.4s effects=6000/6000 repeated=50 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  the harness detected all 50 planted repeated effects
+control_idempotent                 pass                 30s drain=8.4s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+kill_before_send                   pass                 22s drain=0.0s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=112
+  every expected effect exists exactly once
+kill_during_request                pass                 28s drain=5.6s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=383
+  every expected effect exists exactly once
+kill_after_commit_before_ack       pass                 22s drain=0.0s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=128
+  every expected effect exists exactly once
+timeout_then_late_commit           pass                 22s drain=0.0s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+engine_db_and_workers_restart      pass                 38s drain=0.0s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=95
+  every expected effect exists exactly once
+receiver_db_restart                pass                 36s drain=4.1s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+receiver_crash_after_commit        pass                 24s drain=1.6s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+lease_expires_old_worker_running   pass                 26s drain=0.0s effects=7200/7200 repeated=0 missing=0 dead=0 unfinished=0 stale=93 expired=93
+  every expected effect exists exactly once
+status_burst_429                   pass                 22s drain=0.0s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+status_burst_500                   pass                 22s drain=0.0s effects=6000/6000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+destination_offline                pass                 39s drain=6.2s effects=18000/18000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=0
+  every expected effect exists exactly once
+reference_parity                   pass                203s drain=0.0s effects=100000/100000 repeated=0 missing=0 dead=0 unfinished=0 stale=0 expired=520
+  every expected effect exists exactly once

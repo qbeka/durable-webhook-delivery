@@ -1,0 +1,23 @@
+{
+  "stream": {
+    "tenant_id": "flaky",
+    "source_id": "mail",
+    "seed": 8004,
+    "event_count": 30000,
+    "rate_per_second": 300,
+    "payload_bytes": 1024,
+    "start_unix_ns": 1793832166258828000
+  },
+  "duplicate_sends": 0,
+  "offered_sends": 30000,
+  "accepted": 30000,
+  "duplicates": 0,
+  "conflicts": 0,
+  "rejected": 0,
+  "timed_out": 0,
+  "retried_requests": 0,
+  "elapsed_seconds": 101.236393,
+  "send_lag_p50_us": 0.546,
+  "send_lag_p99_us": 531.704,
+  "send_lag_max_us": 1267.128
+}

@@ -1,0 +1,23 @@
+{
+  "stream": {
+    "tenant_id": "healthy",
+    "source_id": "mail",
+    "seed": 2026,
+    "event_count": 6000,
+    "rate_per_second": 300,
+    "payload_bytes": 1024,
+    "start_unix_ns": 1793824232386822000
+  },
+  "duplicate_sends": 0,
+  "offered_sends": 6000,
+  "accepted": 6000,
+  "duplicates": 0,
+  "conflicts": 0,
+  "rejected": 0,
+  "timed_out": 0,
+  "retried_requests": 0,
+  "elapsed_seconds": 20.232137,
+  "send_lag_p50_us": 1.511,
+  "send_lag_p99_us": 92697.664,
+  "send_lag_max_us": 159317.837
+}
