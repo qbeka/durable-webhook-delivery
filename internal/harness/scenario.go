@@ -61,6 +61,9 @@ type Spec struct {
 	// ControlExpectsRepeats, when above zero, marks a negative control: the run is
 	// valid only if the reconciler reports exactly this many repeated effects.
 	ControlExpectsRepeats int
+	// ControlExpectsLoss marks a negative control that must lose acknowledged
+	// events. The run is valid only if it does.
+	ControlExpectsLoss bool
 	// Evidence proves the fault reached the mechanism it targets. A scenario that
 	// passes without this proof tested nothing, so the run is invalid.
 	Evidence func(Result) error
@@ -170,7 +173,7 @@ func (e *Env) Run(ctx context.Context, spec Spec) (Result, error) {
 	// Stop the receivers first so the effect logs are complete.
 	cluster.StopAll()
 	cluster.Store = nil
-	report, err := reconcile.Run(ctx, EngineURL, ReceiverURL, expectations)
+	report, err := reconcile.Run(ctx, spec.Options.engineURL(), ReceiverURL, expectations)
 	if err != nil {
 		return Result{}, err
 	}
@@ -189,7 +192,7 @@ func (e *Env) Run(ctx context.Context, spec Spec) (Result, error) {
 		result.Latency[route.Tenant] = SummarizeLatency(rows, time.Time{}, time.Time{})
 		result.Outcomes[route.Tenant] = describeOutcomes(rows)
 		if key, found := findAmbiguousKey(rows); found {
-			trace, err := BuildTrace(ctx, spec.Name, key, rows)
+			trace, err := BuildTrace(ctx, spec.Options.engineURL(), spec.Name, key, rows)
 			if err != nil {
 				return Result{}, err
 			}
@@ -230,6 +233,12 @@ func verdict(spec Spec, result Result) (string, string) {
 	}
 	if !result.Drained {
 		return "fail", "queue did not drain before the deadline"
+	}
+	if spec.ControlExpectsLoss {
+		if result.Reconcile.MissingEvents == 0 {
+			return "invalid", "the control lost no acknowledged events, so the fault created no danger"
+		}
+		return "control_detected", fmt.Sprintf("the harness detected %d lost acknowledged events", result.Reconcile.MissingEvents)
 	}
 	if spec.ControlExpectsRepeats > 0 {
 		if result.Reconcile.RepeatedEffects != spec.ControlExpectsRepeats {

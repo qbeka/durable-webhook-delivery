@@ -45,8 +45,8 @@ func findAmbiguousKey(rows []EffectRow) (string, bool) {
 }
 
 // BuildTrace merges the engine's history, the receiver's log and the ledger.
-func BuildTrace(ctx context.Context, scenario, deliveryKey string, rows []EffectRow) (Trace, error) {
-	database, err := store.Open(ctx, EngineURL, 2)
+func BuildTrace(ctx context.Context, engineURL, scenario, deliveryKey string, rows []EffectRow) (Trace, error) {
+	database, err := store.Open(ctx, engineURL, 2)
 	if err != nil {
 		return Trace{}, err
 	}

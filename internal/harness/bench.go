@@ -126,7 +126,7 @@ func RunBench(ctx context.Context, root, outDir string, config BenchConfig, repe
 		TenantID: route.Tenant, SourceID: route.Source, Seed: seed, EventCount: events,
 		RatePerSecond: config.Rate, PayloadBytes: config.PayloadBytes, StartUnixNs: plan.StartUnixNs,
 	}
-	report, err := reconcile.Run(ctx, EngineURL, ReceiverURL, []reconcile.Expectation{
+	report, err := reconcile.Run(ctx, config.Options.engineURL(), ReceiverURL, []reconcile.Expectation{
 		{Stream: stream, ExpectEffects: true, UnackedIndexes: summary.UnackedIndexes},
 	})
 	if err != nil {

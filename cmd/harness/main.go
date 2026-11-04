@@ -4,6 +4,7 @@
 //	harness bench  [--rate 1000] [--duration 60s] [--workers 1] [--repetitions 3]
 //	harness recovery [--mode offline] [--outage 60s] [--max-in-flight 16] [--breaker 5]
 //	harness generator [--rates 1000,2000]
+//	harness failover [--mode sync] [--repetitions 5]
 package main
 
 import (
@@ -24,7 +25,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "usage: harness faults|bench|recovery|generator [flags]")
+		fmt.Fprintln(os.Stderr, "usage: harness faults|bench|recovery|generator|failover [flags]")
 		os.Exit(2)
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -39,6 +40,8 @@ func main() {
 		err = runRecovery(ctx, os.Args[2:])
 	case "generator":
 		err = runGenerator(ctx, os.Args[2:])
+	case "failover":
+		err = runFailover(ctx, os.Args[2:])
 	default:
 		err = fmt.Errorf("unknown command %q", os.Args[1])
 	}
@@ -111,6 +114,7 @@ func runBench(ctx context.Context, arguments []string) error {
 	concurrency := flags.Int("concurrency", 64, "requests in flight per worker")
 	maxInFlight := flags.Int("max-in-flight", 256, "requests in flight per destination")
 	receiverConnections := flags.Int("receiver-connections", 64, "database connections in the receiver")
+	engineURL := flags.String("engine-url", "", "engine database URL, empty for the default cluster")
 	repetitions := flags.Int("repetitions", 3, "repetitions of this configuration")
 	seed := flags.Uint64("seed", 7000, "workload seed, plus the repetition number")
 	gate := quietGateFlags(flags)
@@ -119,6 +123,7 @@ func runBench(ctx context.Context, arguments []string) error {
 
 	options := harness.BenchOptions(*workers, *concurrency, *maxInFlight)
 	options.ReceiverConnections = *receiverConnections
+	options.EngineDatabaseURL = *engineURL
 	config := harness.BenchConfig{
 		Name: *name, Rate: *rate, Duration: *duration, Warmup: *warmup, PayloadBytes: 1024, Fanout: 1,
 		DrainDeadline: *drainDeadline, Seed: *seed,
@@ -231,4 +236,49 @@ func runGenerator(ctx context.Context, arguments []string) error {
 		results = append(results, result)
 	}
 	return harness.WriteJSON(filepath.Join(absolute, "generator.json"), results)
+}
+
+func runFailover(ctx context.Context, arguments []string) error {
+	flags := flag.NewFlagSet("failover", flag.ExitOnError)
+	outDir := flags.String("out", ".run/failover", "output directory")
+	mode := flags.String("mode", "sync", "sync or async replication")
+	repetitions := flags.Int("repetitions", 5, "repetitions")
+	seed := flags.Uint64("seed", 8500, "workload seed, plus the repetition number")
+	gate := quietGateFlags(flags)
+	_ = flags.Parse(arguments)
+
+	absolute, err := filepath.Abs(*outDir)
+	if err != nil {
+		return err
+	}
+	root := repositoryRoot()
+	config := harness.FailoverConfig{
+		Mode: *mode, Rate: 500, CrashAt: 15 * time.Second, Duration: 40 * time.Second,
+		Freeze: time.Second, Detection: 2 * time.Second, Seed: *seed,
+	}
+	manifest, err := harness.NewManifest(ctx, root, "failover-"+*mode, *seed, config)
+	if err != nil {
+		return err
+	}
+	failed := 0
+	for repetition := 1; repetition <= *repetitions; repetition++ {
+		result, err := harness.RunFailover(ctx, root, absolute, config, repetition, *gate)
+		if err != nil {
+			return err
+		}
+		report := result.Scenario.Reconcile
+		fmt.Printf("failover-%s rep %d: %s lost acknowledged %d repeated %d missing effects %d dead %d unfinished %d unavailable %.2fs effect p99 %.1fms\n",
+			*mode, repetition, result.Verdict, report.MissingEvents, report.RepeatedEffects, report.MissingEffects,
+			report.DeadLetters, report.UnfinishedJobs, result.UnavailableSeconds, result.Scenario.Latency["healthy"].P99Ms)
+		if result.Verdict != "pass" && result.Verdict != "control_detected" {
+			failed++
+		}
+	}
+	if err := manifest.Finish(filepath.Join(absolute, "failover-"+*mode)); err != nil {
+		return err
+	}
+	if failed > 0 {
+		return fmt.Errorf("%d repetitions did not pass", failed)
+	}
+	return nil
 }

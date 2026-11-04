@@ -46,6 +46,15 @@ type Options struct {
 	BreakerCap           time.Duration `json:"breaker_cap_ns"`
 	MaxInFlight          int           `json:"max_in_flight"` // per destination, across workers
 	ReceiverConnections  int           `json:"receiver_max_connections"`
+	EngineDatabaseURL    string        `json:"engine_database_url,omitempty"` // empty means EngineURL
+}
+
+// engineURL is the database this run uses.
+func (o Options) engineURL() string {
+	if o.EngineDatabaseURL != "" {
+		return o.EngineDatabaseURL
+	}
+	return EngineURL
 }
 
 // FaultOptions are the timings used by the fault scenarios.
@@ -114,7 +123,7 @@ func NewCluster(ctx context.Context, root, runDir string, options Options, route
 		return nil, err
 	}
 	var err error
-	if c.Store, err = store.Open(ctx, EngineURL, 4); err != nil {
+	if c.Store, err = store.Open(ctx, c.Options.engineURL(), 4); err != nil {
 		return nil, err
 	}
 	if err := c.Store.Migrate(ctx); err != nil {
@@ -144,16 +153,12 @@ func (c *Cluster) binary(name string) string {
 }
 
 func (c *Cluster) resetDatabases(ctx context.Context) error {
-	statements := map[string]string{
-		EngineURL:   `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`,
-		ReceiverURL: `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`,
-	}
-	for url, statement := range statements {
+	for _, url := range []string{c.Options.engineURL(), ReceiverURL} {
 		connection, err := pgx.Connect(ctx, url)
 		if err != nil {
 			return fmt.Errorf("connect, is `make up` running? %w", err)
 		}
-		_, err = connection.Exec(ctx, statement)
+		_, err = connection.Exec(ctx, `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`)
 		connection.Close(ctx)
 		if err != nil {
 			return err
@@ -187,7 +192,7 @@ func (c *Cluster) registerRoutes(ctx context.Context) error {
 // StartAPI starts the ingress server and waits until it answers.
 func (c *Cluster) StartAPI(ctx context.Context) error {
 	var err error
-	c.api, err = startProcess(c.RunDir, "api", c.binary("hookd"), []string{"api", "--addr", apiAddress}, nil)
+	c.api, err = startProcess(c.RunDir, "api", c.binary("hookd"), []string{"api", "--addr", apiAddress, "--db", c.Options.engineURL()}, nil)
 	if err != nil {
 		return err
 	}
@@ -247,7 +252,7 @@ func (c *Cluster) StartWorker(slot int, failpoint string) error {
 		environment = append(environment, "HOOK_FAILPOINT="+failpoint)
 	}
 	process, err := startProcess(c.RunDir, id, c.binary("hookd"), []string{
-		"worker", "--id", id,
+		"worker", "--id", id, "--db", options.engineURL(),
 		"--concurrency", strconv.Itoa(options.WorkerConcurrency),
 		"--max-connections", strconv.Itoa(options.WorkerMaxConnections),
 		"--lease", options.Lease.String(), "--lease-margin", options.LeaseMargin.String(),
