@@ -1,0 +1,33 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      engine:
+        image: postgres:17
+        env:
+          POSTGRES_USER: hook
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["54330:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hook" --health-interval 2s --health-retries 20
+      receiver:
+        image: postgres:17
+        env:
+          POSTGRES_USER: hook
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ["54331:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hook" --health-interval 2s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test -race -count=1 ./...
