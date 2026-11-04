@@ -15,19 +15,30 @@ const (
 	afterCommitCrash
 )
 
-// Faults holds faults injected by the harness. Each fault applies to the next N
-// matching requests. It is served on a separate loopback admin port, never on
-// the delivery endpoint.
+// Faults holds faults injected by the harness. Most apply to the next N matching
+// requests. A status burst lasts a length of time, as real overload does: a
+// breaker slows requests down, so a burst counted in requests would last as long
+// as the breaker made it. Faults are set on a separate loopback admin port, never
+// on the delivery endpoint.
 type Faults struct {
-	mutex  sync.Mutex
-	active FaultPlan
+	mutex      sync.Mutex
+	active     FaultPlan
+	burstUntil time.Time
+}
+
+// Set replaces the fault plan.
+func (f *Faults) Set(plan FaultPlan) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+	f.active = plan
+	f.burstUntil = time.Now().Add(plan.StatusBurstFor)
 }
 
 // FaultPlan is the JSON body of POST /faults. Setting it replaces the old plan.
 type FaultPlan struct {
 	DropResponseAfterCommit int           `json:"drop_response_after_commit"` // requests
 	CrashAfterCommit        int           `json:"crash_after_commit"`         // requests
-	StatusBurstCount        int           `json:"status_burst_count"`         // requests
+	StatusBurstFor          time.Duration `json:"status_burst_for_ns"`        // from when the plan is set
 	StatusBurstCode         int           `json:"status_burst_code"`          // HTTP status
 	RetryAfterSeconds       int           `json:"retry_after_seconds"`        // sent with the burst
 	DelayCount              int           `json:"delay_count"`                // requests
@@ -37,10 +48,9 @@ type FaultPlan struct {
 func (f *Faults) takeStatusBurst() (status, retryAfterSeconds int) {
 	f.mutex.Lock()
 	defer f.mutex.Unlock()
-	if f.active.StatusBurstCount <= 0 {
+	if f.active.StatusBurstFor <= 0 || time.Now().After(f.burstUntil) {
 		return 0, 0
 	}
-	f.active.StatusBurstCount--
 	return f.active.StatusBurstCode, f.active.RetryAfterSeconds
 }
 
@@ -80,9 +90,7 @@ func (f *Faults) AdminRoutes() http.Handler {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		f.mutex.Lock()
-		f.active = plan
-		f.mutex.Unlock()
+		f.Set(plan)
 		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })

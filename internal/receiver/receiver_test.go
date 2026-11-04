@@ -163,7 +163,7 @@ func TestNaiveReceiverRecordsARepeatedEffect(t *testing.T) {
 
 func TestDroppedResponseLeavesTheEffectCommitted(t *testing.T) {
 	handler, server := startReceiver(t, ModeIdempotent)
-	handler.Faults.active = FaultPlan{DropResponseAfterCommit: 1}
+	handler.Faults.Set(FaultPlan{DropResponseAfterCommit: 1})
 
 	body := receiptBody("r1", 1299)
 	request, err := http.NewRequest(http.MethodPost, server.URL+"/webhooks/receipts", bytes.NewReader(body))
@@ -189,19 +189,18 @@ func TestDroppedResponseLeavesTheEffectCommitted(t *testing.T) {
 	}
 }
 
-func TestStatusBurstEndsAfterItsCount(t *testing.T) {
+func TestStatusBurstEndsWhenItsTimeRunsOut(t *testing.T) {
 	handler, server := startReceiver(t, ModeIdempotent)
-	handler.Faults.active = FaultPlan{StatusBurstCount: 2, StatusBurstCode: 429, RetryAfterSeconds: 7}
+	handler.Faults.Set(FaultPlan{StatusBurstFor: 150 * time.Millisecond, StatusBurstCode: 429, RetryAfterSeconds: 7})
 	body := receiptBody("r1", 1)
-	for range 2 {
-		response := post(t, server, "key", body, testSecret)
-		if response.StatusCode != 429 || response.Header.Get("Retry-After") != "7" {
-			t.Fatalf("got %d %q", response.StatusCode, response.Header.Get("Retry-After"))
-		}
+	response := post(t, server, "key", body, testSecret)
+	if response.StatusCode != 429 || response.Header.Get("Retry-After") != "7" {
+		t.Fatalf("got %d %q", response.StatusCode, response.Header.Get("Retry-After"))
 	}
 	if got := ledgerRows(t, handler, "key"); got != 0 {
 		t.Fatal("a refused request must not write the ledger")
 	}
+	time.Sleep(200 * time.Millisecond)
 	if response := post(t, server, "key", body, testSecret); response.StatusCode != 200 {
 		t.Fatalf("got %d after the burst", response.StatusCode)
 	}
