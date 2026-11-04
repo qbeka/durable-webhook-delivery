@@ -126,7 +126,9 @@ func (r *Receiver) handle(w http.ResponseWriter, request *http.Request) {
 	}
 	r.Faults.waitBeforeCommit()
 
-	outcome, err := r.apply(request.Context(), incoming)
+	// A sender that hangs up does not cancel the write. The effect either commits
+	// or it does not, and the sender's retry finds out which.
+	outcome, err := r.apply(context.WithoutCancel(request.Context()), incoming)
 	if err != nil {
 		slog.Warn("apply failed", "delivery", incoming.key, "error", err)
 		http.Error(w, "database error", http.StatusServiceUnavailable)
