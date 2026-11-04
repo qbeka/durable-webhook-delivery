@@ -68,7 +68,11 @@ CREATE TABLE IF NOT EXISTS event_conflicts (
 CREATE TABLE IF NOT EXISTS deliveries (
     id               bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_row_id     bigint      NOT NULL REFERENCES events (id),
-    destination_id   bigint      NOT NULL REFERENCES destinations (id),
+    -- No foreign key on purpose. A foreign key takes a lock on the destination row
+    -- for every insert, and that one hot row capped fan-out. See docs/experiments.md.
+    -- Fan-out reads destination_id from subscriptions, which does have a foreign
+    -- key, and destinations are never deleted, so the reference cannot dangle.
+    destination_id   bigint      NOT NULL,
     delivery_key     text        NOT NULL UNIQUE, -- stable across attempts and replays
     state            text        NOT NULL DEFAULT 'pending'
                      CHECK (state IN ('pending', 'leased', 'succeeded', 'dead')),
