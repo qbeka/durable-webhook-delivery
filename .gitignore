@@ -1,0 +1,14 @@
+# Local databases, logs and built binaries
+/.run/
+/bin/
+
+# Scratch output from experiments. Published evidence lives in results/.
+/tmp/
+*.log
+*.pid
+
+# Secrets never enter this repository
+.env
+.env.*
+
+.DS_Store
