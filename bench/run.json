@@ -1,0 +1,22 @@
+{
+  "unique_events": 100000,
+  "input_attempts": 120000,
+  "duplicate_inputs": 20000,
+  "worker_exits": 30,
+  "fault_sites": [
+    "before_commit",
+    "after_commit",
+    "after_ack"
+  ],
+  "runs_per_site": 10,
+  "lost_effects": 0,
+  "duplicate_effects": 0,
+  "batch_size": 100,
+  "seed": 291,
+  "drain_seconds": 3.358769772999949,
+  "scope": "local batch drain including worker restarts; excludes bulk enqueue; no HTTP",
+  "python": "3.12.14",
+  "sqlite": "3.53.1",
+  "platform": "Linux-6.18.57-x86_64-with-glibc2.39",
+  "source_sha256": "d6fbe47cbb8f20dbae2f5fe9de9818cbdb87d223fcc790febb2cc20cd5fa48ca"
+}
