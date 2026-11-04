@@ -148,6 +148,9 @@ func (e *Env) Run(ctx context.Context, spec Spec) (Result, error) {
 		if delivered, err = spec.Inject(ctx, run); err != nil {
 			return Result{}, fmt.Errorf("%s inject: %w", spec.Name, err)
 		}
+		if delivered == nil {
+			delivered = map[string]int{}
+		}
 	}
 	<-loadDone
 	if loadError != nil {
