@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Durable Webhook Delivery</title>
+<style>
+:root {
+  color-scheme: light;
+  --surface: #fcfcfb; --surface-2: #f3f2ef; --line: #e2e1dc;
+  --text: #0b0b0b; --text-2: #52514e; --text-3: #6f6e69;
+  --series-1: #2a78d6; --series-2: #eb6834; --series-3: #1baf7a;
+  --band: #efeee9; --warn-bg: #fdf3e0; --warn-line: #eda100;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface: #1a1a19; --surface-2: #242423; --line: #363634;
+    --text: #f0efec; --text-2: #c3c2b7; --text-3: #9c9b92;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+    --band: #2a2a28; --warn-bg: #33290f; --warn-line: #c98500;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface: #1a1a19; --surface-2: #242423; --line: #363634;
+  --text: #f0efec; --text-2: #c3c2b7; --text-3: #9c9b92;
+  --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70;
+  --band: #2a2a28; --warn-bg: #33290f; --warn-line: #c98500;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--surface); color: var(--text);
+  font: 16px/1.55 ui-sans-serif, -apple-system, "Helvetica Neue", Arial, sans-serif;
+}
+main { max-width: 860px; margin: 0 auto; padding: 48px 16px 80px; }
+h1 { font-size: 32px; line-height: 1.2; margin: 0 0 12px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; margin: 56px 0 8px; }
+p { margin: 0 0 12px; color: var(--text-2); max-width: 68ch; }
+strong { color: var(--text); }
+code { font: 0.9em ui-monospace, Menlo, monospace; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin: 28px 0 0; }
+.stat { background: var(--surface-2); border-radius: 8px; padding: 14px 16px; }
+.stat b { display: block; font-size: 24px; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.stat span { font-size: 13px; color: var(--text-2); display: block; margin-top: 4px; }
+
+/* Replay */
+.replay { border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+button {
+  font: inherit; font-size: 14px; color: var(--text); background: var(--surface-2);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 14px; cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--text-3); }
+button:disabled { opacity: 0.45; cursor: default; }
+button:focus-visible, summary:focus-visible { outline: 2px solid var(--series-1); outline-offset: 2px; }
+#stepCount { font-size: 13px; color: var(--text-3); margin-left: auto; font-variant-numeric: tabular-nums; }
+.beliefs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px; }
+.belief { background: var(--surface-2); border-radius: 8px; padding: 10px 12px; min-width: 0; }
+.belief small { display: block; font-size: 12px; color: var(--text-3); }
+.belief b { display: block; font-size: 16px; overflow-wrap: anywhere; }
+.notice { display: none; background: var(--warn-bg); border-left: 3px solid var(--warn-line); padding: 10px 12px; font-size: 14px; color: var(--text); margin-bottom: 14px; border-radius: 0 6px 6px 0; }
+.notice.on { display: block; }
+ol.steps { list-style: none; margin: 0; padding: 0; }
+ol.steps li { display: grid; grid-template-columns: 78px 76px 1fr; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); font-size: 14px; color: var(--text-3); }
+ol.steps li.done { color: var(--text-2); }
+ol.steps li.now { color: var(--text); background: var(--surface-2); margin: 0 -8px; padding: 8px; border-radius: 6px; border-top-color: transparent; }
+.time { font-variant-numeric: tabular-nums; font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.who { font-size: 13px; }
+ol.steps li:not(.done):not(.now) .text { visibility: hidden; }
+
+/* Charts */
+.figure { margin-top: 20px; }
+.figure h3 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+.figure .sub { font-size: 13px; color: var(--text-2); margin: 0 0 6px; }
+.chart { position: relative; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.axis { fill: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+.band { fill: var(--band); }
+.band-label { fill: var(--text-2); font-size: 12px; }
+.series { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.end-label { fill: var(--text-2); font-size: 12px; }
+.cross { stroke: var(--text-3); stroke-width: 1; }
+.tip { position: absolute; pointer-events: none; background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; white-space: nowrap; box-shadow: 0 2px 8px rgb(0 0 0 / 12%); display: none; z-index: 2; }
+.tip .row { display: flex; align-items: center; gap: 6px; }
+.tip .key { width: 12px; height: 2px; border-radius: 1px; }
+.tip b { font-variant-numeric: tabular-nums; }
+.tip .head { color: var(--text-3); margin-bottom: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; color: var(--text-2); margin: 6px 0 2px; }
+.legend i { display: inline-block; width: 14px; height: 2px; border-radius: 1px; vertical-align: middle; margin-right: 6px; }
+details { margin-top: 16px; font-size: 14px; color: var(--text-2); }
+summary { cursor: pointer; }
+.table-wrap { max-height: 300px; overflow: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 6px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 5px 10px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+th { color: var(--text-2); font-weight: 600; background: var(--surface); position: sticky; top: 0; }
+th:first-child, td:first-child { text-align: left; }
+footer { margin-top: 56px; font-size: 13px; color: var(--text-3); border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 600px) {
+  h1 { font-size: 26px; }
+  .beliefs { grid-template-columns: 1fr; }
+  ol.steps li { grid-template-columns: 62px 1fr; }
+  ol.steps .who { display: none; }
+}
+</style>
+</head>
+<body>
+<main>
+  <h1>A webhook that lost its acknowledgement</h1>
+  <p>A worker records an expense, then crashes before it can say so. A sender cannot
+  tell this from a request that never arrived, so it must try again. This page replays
+  that moment from a recorded run, and shows why the expense is still recorded once.</p>
+  <div class="stats" id="stats"></div>
+
+  <h2>Replay one ambiguous acknowledgement</h2>
+  <p>Every line below comes from a recorded run: the engine database, the receiver
+  database and the receiver log. Step through it and watch the two databases disagree.</p>
+  <section class="replay" aria-label="Step-by-step replay">
+    <div class="controls">
+      <button id="back" type="button">Back</button>
+      <button id="next" type="button">Next step</button>
+      <button id="play" type="button">Play</button>
+      <button id="reset" type="button">Start over</button>
+      <span id="stepCount" aria-live="polite"></span>
+    </div>
+    <div class="beliefs">
+      <div class="belief"><small>Engine says the delivery is</small><b id="engineState">not created</b></div>
+      <div class="belief"><small>Ledger rows for this key</small><b id="ledgerRows">0</b></div>
+      <div class="belief"><small>Attempts started</small><b id="attemptCount">0</b></div>
+    </div>
+    <div class="notice" id="notice"></div>
+    <ol class="steps" id="steps"></ol>
+  </section>
+
+  <h2>One destination goes down. The other tenant keeps moving.</h2>
+  <p id="outageIntro"></p>
+  <div class="legend" id="queueLegend"></div>
+  <div class="figure">
+    <h3>Unfinished deliveries, by destination</h3>
+    <p class="sub">The failing destination's queue grows through the outage, then drains.</p>
+    <div class="chart" id="queueChart"></div>
+  </div>
+  <div class="figure">
+    <h3>Healthy tenant latency, arrival to durable effect</h3>
+    <p class="sub">Milliseconds, per one-second window of arrivals.</p>
+    <div class="legend" id="latencyLegend"></div>
+    <div class="chart" id="latencyChart"></div>
+  </div>
+  <details>
+    <summary>Show this data as a table</summary>
+    <div class="table-wrap"><table id="dataTable"></table></div>
+  </details>
+
+  <h2>What these numbers cover</h2>
+  <p id="scope"></p>
+  <footer id="footer"></footer>
+</main>
+
+<script id="data" type="application/json">/*DATA*/</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const el = (id) => document.getElementById(id);
+const SVG = "http://www.w3.org/2000/svg";
+const number = (value) => Math.round(value).toLocaleString("en-US");
+
+// Headline figures
+for (const stat of DATA.stats) {
+  const box = document.createElement("div");
+  box.className = "stat";
+  const value = document.createElement("b");
+  value.textContent = stat.value;
+  const label = document.createElement("span");
+  label.textContent = stat.label;
+  box.append(value, label);
+  el("stats").append(box);
+}
+
+// Replay
+const steps = DATA.trace.steps;
+const startTime = new Date(steps[0].at).getTime();
+let position = 0;
+let timer = null;
+
+function stateAt(count) {
+  const state = { engine: "not created", ledger: 0, attempts: 0, disagree: false, lost: false };
+  for (const step of steps.slice(0, count)) {
+    switch (step.action) {
+      case "event_committed": state.engine = "pending"; break;
+      case "claim_committed": state.engine = "leased"; state.attempts += 1; break;
+      case "effect_committed": state.ledger += 1; break;
+      case "lease_expired": state.engine = "pending"; break;
+      case "attempt_recorded":
+        if (step.detail.includes("as success")) state.engine = "succeeded";
+        else if (!step.detail.includes("stale")) state.engine = "pending";
+        break;
+    }
+  }
+  state.disagree = state.ledger > 0 && state.engine !== "succeeded";
+  return state;
+}
+
+function renderSteps() {
+  const list = el("steps");
+  list.replaceChildren();
+  steps.forEach((step, index) => {
+    const row = document.createElement("li");
+    if (index < position - 1) row.className = "done";
+    if (index === position - 1) row.className = "now";
+    const time = document.createElement("span");
+    time.className = "time";
+    time.textContent = `${number(new Date(step.at).getTime() - startTime)} ms`;
+    const who = document.createElement("span");
+    who.className = "who";
+    who.textContent = step.actor;
+    const text = document.createElement("span");
+    text.className = "text";
+    text.textContent = step.detail;
+    row.append(time, who, text);
+    list.append(row);
+  });
+  const state = stateAt(position);
+  el("engineState").textContent = state.engine;
+  el("ledgerRows").textContent = state.ledger;
+  el("attemptCount").textContent = state.attempts;
+  el("stepCount").textContent = `Step ${position} of ${steps.length}`;
+  el("back").disabled = position === 0;
+  el("next").disabled = position === steps.length;
+  const notice = el("notice");
+  const finished = position === steps.length;
+  notice.classList.toggle("on", state.disagree || finished);
+  notice.textContent = finished
+    ? `Finished. ${state.attempts} attempts, ${state.ledger} ledger row. The receiver's unique key turned a resend into a duplicate answer.`
+    : state.disagree
+      ? "The two databases disagree. The receiver has the expense, and the engine does not know. Nothing but a resend can settle this."
+      : "";
+}
+
+function move(delta) {
+  position = Math.min(steps.length, Math.max(0, position + delta));
+  renderSteps();
+}
+function stop() {
+  clearInterval(timer);
+  timer = null;
+  el("play").textContent = "Play";
+}
+el("next").onclick = () => { stop(); move(1); };
+el("back").onclick = () => { stop(); move(-1); };
+el("reset").onclick = () => { stop(); position = 0; renderSteps(); };
+el("play").onclick = () => {
+  if (timer) return stop();
+  if (position === steps.length) position = 0;
+  el("play").textContent = "Pause";
+  timer = setInterval(() => {
+    move(1);
+    if (position === steps.length) stop();
+  }, 1400);
+};
+renderSteps();
+
+// Charts
+function niceMax(value) {
+  if (value <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(value));
+  for (const step of [1, 2, 2.5, 5, 10]) if (value <= step * power) return step * power;
+  return 10 * power;
+}
+
+function legend(target, series) {
+  for (const item of series) {
+    const entry = document.createElement("span");
+    const key = document.createElement("i");
+    key.style.background = `var(${item.color})`;
+    entry.append(key, document.createTextNode(item.name));
+    target.append(entry);
+  }
+}
+
+function lineChart(container, points, series, band, unit) {
+  const width = 820, height = 230, left = 52, right = 96, top = 12, bottom = 26;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const xMax = points[points.length - 1].x;
+  const yMax = niceMax(Math.max(...points.flatMap((p) => series.map((s) => p[s.key] ?? 0))));
+  const x = (value) => left + (value / xMax) * plotWidth;
+  const y = (value) => top + plotHeight - (value / yMax) * plotHeight;
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", series.map((s) => s.name).join(" and ") + " over the run");
+  const add = (name, attributes, text) => {
+    const node = document.createElementNS(SVG, name);
+    for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+    if (text !== undefined) node.textContent = text;
+    svg.append(node);
+    return node;
+  };
+  add("rect", { class: "band", x: x(band.start), y: top, width: x(band.end) - x(band.start), height: plotHeight });
+  add("text", { class: "band-label", x: x(band.start) + 6, y: top + 15 }, "outage");
+  for (let tick = 0; tick <= 4; tick++) {
+    const value = (yMax * tick) / 4;
+    add("line", { class: "grid", x1: left, x2: left + plotWidth, y1: y(value), y2: y(value) });
+    add("text", { class: "axis", x: left - 8, y: y(value) + 4, "text-anchor": "end" }, number(value));
+  }
+  const xStep = xMax > 60 ? 20 : 10;
+  for (let value = 0; value <= xMax; value += xStep) {
+    add("text", { class: "axis", x: x(value), y: height - 6, "text-anchor": "middle" }, `${value}s`);
+  }
+  for (const item of series) {
+    const path = points.filter((p) => p[item.key] !== null && p[item.key] !== undefined)
+      .map((p, index) => `${index ? "L" : "M"}${x(p.x).toFixed(1)} ${y(p[item.key]).toFixed(1)}`).join("");
+    const line = add("path", { class: "series", d: path });
+    line.style.stroke = `var(${item.color})`;
+    const last = [...points].reverse().find((p) => p[item.key] !== null && p[item.key] !== undefined);
+    if (last) add("text", { class: "end-label", x: left + plotWidth + 8, y: y(last[item.key]) + 4 }, item.name);
+  }
+  const cross = add("line", { class: "cross", y1: top, y2: top + plotHeight, visibility: "hidden" });
+  container.append(svg);
+
+  const tip = document.createElement("div");
+  tip.className = "tip";
+  container.append(tip);
+  svg.addEventListener("pointermove", (event) => {
+    const box = svg.getBoundingClientRect();
+    const scale = width / box.width;
+    const pointerX = (event.clientX - box.left) * scale;
+    const nearest = points.reduce((best, p) => Math.abs(x(p.x) - pointerX) < Math.abs(x(best.x) - pointerX) ? p : best);
+    cross.setAttribute("x1", x(nearest.x));
+    cross.setAttribute("x2", x(nearest.x));
+    cross.setAttribute("visibility", "visible");
+    tip.replaceChildren();
+    const head = document.createElement("div");
+    head.className = "head";
+    head.textContent = `${nearest.x.toFixed(0)} seconds into the run`;
+    tip.append(head);
+    for (const item of series) {
+      const row = document.createElement("div");
+      row.className = "row";
+      const key = document.createElement("span");
+      key.className = "key";
+      key.style.background = `var(${item.color})`;
+      const value = document.createElement("b");
+      const reading = nearest[item.key];
+      value.textContent = reading === null || reading === undefined ? "no data" : `${number(reading)}${unit}`;
+      row.append(key, value, document.createTextNode(item.name));
+      tip.append(row);
+    }
+    tip.style.display = "block";
+    const tipLeft = x(nearest.x) / scale;
+    const flip = tipLeft > box.width * 0.62;
+    tip.style.left = flip ? "auto" : `${tipLeft + 10}px`;
+    tip.style.right = flip ? `${box.width - tipLeft + 10}px` : "auto";
+    tip.style.top = "8px";
+  });
+  svg.addEventListener("pointerleave", () => {
+    tip.style.display = "none";
+    cross.setAttribute("visibility", "hidden");
+  });
+}
+
+const outage = DATA.outage;
+const band = { start: outage.start_seconds, end: outage.end_seconds };
+el("outageIntro").textContent = outage.intro;
+const queueSeries = [
+  { key: "healthy_queue", name: "Healthy", color: "--series-1" },
+  { key: "failing_queue", name: "Failing", color: "--series-2" },
+];
+const latencySeries = [
+  { key: "healthy_p99_ms", name: "p99", color: "--series-1" },
+  { key: "healthy_p50_ms", name: "p50", color: "--series-3" },
+];
+const points = outage.timeline.map((p) => ({ ...p, x: p.offset_seconds }));
+legend(el("queueLegend"), queueSeries);
+legend(el("latencyLegend"), latencySeries);
+lineChart(el("queueChart"), points, queueSeries, band, "");
+lineChart(el("latencyChart"), points.filter((p) => p.healthy_count > 0), latencySeries, band, " ms");
+
+const table = el("dataTable");
+const header = table.createTHead().insertRow();
+for (const title of ["Second", "Healthy queue", "Failing queue", "p50 ms", "p99 ms", "Events"]) {
+  const cell = document.createElement("th");
+  cell.textContent = title;
+  header.append(cell);
+}
+const body = table.createTBody();
+for (const p of points) {
+  const row = body.insertRow();
+  for (const value of [p.x.toFixed(0), p.healthy_queue, p.failing_queue, p.healthy_p50_ms.toFixed(1), p.healthy_p99_ms.toFixed(1), p.healthy_count]) {
+    row.insertCell().textContent = value;
+  }
+}
+el("scope").textContent = DATA.scope;
+el("footer").textContent = DATA.footer;
+</script>
+</body>
+</html>
