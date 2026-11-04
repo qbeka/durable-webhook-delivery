@@ -110,15 +110,18 @@ func runBench(ctx context.Context, arguments []string) error {
 	workers := flags.Int("workers", 1, "worker processes")
 	concurrency := flags.Int("concurrency", 64, "requests in flight per worker")
 	maxInFlight := flags.Int("max-in-flight", 256, "requests in flight per destination")
+	receiverConnections := flags.Int("receiver-connections", 64, "database connections in the receiver")
 	repetitions := flags.Int("repetitions", 3, "repetitions of this configuration")
 	seed := flags.Uint64("seed", 7000, "workload seed, plus the repetition number")
 	drainDeadline := flags.Duration("drain-deadline", 2*time.Minute, "longest wait for the queue after the schedule ends")
 	_ = flags.Parse(arguments)
 
+	options := harness.BenchOptions(*workers, *concurrency, *maxInFlight)
+	options.ReceiverConnections = *receiverConnections
 	config := harness.BenchConfig{
 		Name: *name, Rate: *rate, Duration: *duration, Warmup: *warmup, PayloadBytes: 1024, Fanout: 1,
 		DrainDeadline: *drainDeadline, Seed: *seed,
-		Options: harness.BenchOptions(*workers, *concurrency, *maxInFlight),
+		Options: options,
 	}
 	if config.Name == "" {
 		config.Name = fmt.Sprintf("r%.0f-w%d", *rate, *workers)

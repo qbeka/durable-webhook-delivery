@@ -45,6 +45,7 @@ type Options struct {
 	BreakerBase          time.Duration `json:"breaker_base_ns"`
 	BreakerCap           time.Duration `json:"breaker_cap_ns"`
 	MaxInFlight          int           `json:"max_in_flight"` // per destination, across workers
+	ReceiverConnections  int           `json:"receiver_max_connections"`
 }
 
 // FaultOptions are the timings used by the fault scenarios.
@@ -55,7 +56,7 @@ func FaultOptions() Options {
 		PollInterval: 10 * time.Millisecond, ReapInterval: 500 * time.Millisecond,
 		MaxAttempts: 60, RetryBase: 100 * time.Millisecond, RetryCap: 2 * time.Second,
 		BreakerThreshold: 8, BreakerBase: 200 * time.Millisecond, BreakerCap: 2 * time.Second,
-		MaxInFlight: 64,
+		MaxInFlight: 64, ReceiverConnections: 64,
 	}
 }
 
@@ -199,6 +200,7 @@ func (c *Cluster) StartReceiver(ctx context.Context, route Route) error {
 	process, err := startProcess(c.RunDir, name+"-"+strconv.FormatInt(time.Now().UnixNano(), 36), c.binary("receiver"), []string{
 		"--addr", route.ReceiverAddr, "--admin-addr", route.AdminAddr, "--secret", destSecret,
 		"--mode", string(route.ReceiverMode), "--effect-log", c.EffectLogPath(route),
+		"--max-connections", strconv.Itoa(max(c.Options.ReceiverConnections, 16)),
 	}, nil)
 	if err != nil {
 		return err

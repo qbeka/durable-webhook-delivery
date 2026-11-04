@@ -24,7 +24,7 @@ func RecoveryOptions(maxInFlight, breakerThreshold int) Options {
 		PollInterval: 10 * time.Millisecond, ReapInterval: time.Second,
 		MaxAttempts: 200, RetryBase: 200 * time.Millisecond, RetryCap: 5 * time.Second,
 		BreakerThreshold: breakerThreshold, BreakerBase: 500 * time.Millisecond, BreakerCap: 5 * time.Second,
-		MaxInFlight: maxInFlight,
+		MaxInFlight: maxInFlight, ReceiverConnections: 64,
 	}
 }
 

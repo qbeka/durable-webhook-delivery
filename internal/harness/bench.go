@@ -29,7 +29,7 @@ func BenchOptions(workers, concurrency, maxInFlight int) Options {
 		PollInterval: 10 * time.Millisecond, ReapInterval: time.Second,
 		MaxAttempts: 12, RetryBase: time.Second, RetryCap: 5 * time.Minute,
 		BreakerThreshold: 5, BreakerBase: time.Second, BreakerCap: 30 * time.Second,
-		MaxInFlight: maxInFlight,
+		MaxInFlight: maxInFlight, ReceiverConnections: 64,
 	}
 }
 
