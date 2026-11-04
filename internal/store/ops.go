@@ -69,6 +69,18 @@ func (s *Store) QueueDepths(ctx context.Context) ([]QueueDepth, error) {
 	return pgx.CollectRows(rows, pgx.RowToStructByPos[QueueDepth])
 }
 
+// BusiestLeaseOwner returns the worker holding the most leases, or "" if none is.
+func (s *Store) BusiestLeaseOwner(ctx context.Context) (string, error) {
+	var owner string
+	err := s.pool.QueryRow(ctx, `
+		SELECT lease_owner FROM deliveries WHERE state = 'leased'
+		GROUP BY lease_owner ORDER BY count(*) DESC LIMIT 1`).Scan(&owner)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	return owner, err
+}
+
 // AttemptRecord is one attempt in a delivery's history.
 type AttemptRecord struct {
 	AttemptNumber  int        `json:"attempt_number"`

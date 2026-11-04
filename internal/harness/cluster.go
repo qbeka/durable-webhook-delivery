@@ -92,6 +92,7 @@ type Cluster struct {
 	api        *Process
 	mutex      sync.Mutex
 	workers    []*Process
+	workerIDs  []string
 	workerSeq  int
 	receivers  map[string]*Process
 	loadgens   []*Process
@@ -106,7 +107,7 @@ func NewCluster(ctx context.Context, root, runDir string, options Options, route
 	c := &Cluster{
 		Root: root, RunDir: runDir, Options: options, Routes: routes,
 		receivers: map[string]*Process{}, failpoints: map[int]string{},
-		workers: make([]*Process, options.Workers),
+		workers: make([]*Process, options.Workers), workerIDs: make([]string, options.Workers),
 	}
 	if err := c.resetDatabases(ctx); err != nil {
 		return nil, err
@@ -260,8 +261,26 @@ func (c *Cluster) StartWorker(slot int, failpoint string) error {
 	}
 	c.mutex.Lock()
 	c.workers[slot] = process
+	c.workerIDs[slot] = id
 	c.mutex.Unlock()
 	return nil
+}
+
+// BusiestWorker returns the running worker holding the most leases. A pause only
+// tests something if it freezes a worker with requests in flight.
+func (c *Cluster) BusiestWorker(ctx context.Context) (*Process, error) {
+	owner, err := c.Store.BusiestLeaseOwner(ctx)
+	if err != nil {
+		return nil, err
+	}
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	for slot, id := range c.workerIDs {
+		if id == owner {
+			return c.workers[slot], nil
+		}
+	}
+	return c.workers[0], nil
 }
 
 // Worker returns the process in a slot.

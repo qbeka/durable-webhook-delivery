@@ -607,6 +607,12 @@ func TestExpiredPayloadsDoNotUseUpTheReplayLimit(t *testing.T) {
 	if result.Requeued != 1 || result.PayloadExpired != 2 {
 		t.Fatalf("%+v", result)
 	}
+	requeued := countRows(t, database, `
+		SELECT count(*) FROM deliveries d JOIN events e ON e.id = d.event_row_id
+		WHERE d.state = 'pending' AND e.payload IS NOT NULL`)
+	if requeued != 1 {
+		t.Fatal("replay chose a delivery whose payload is gone")
+	}
 }
 
 func TestPausedDestinationKeepsItsDeliveries(t *testing.T) {

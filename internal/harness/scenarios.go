@@ -316,10 +316,13 @@ func (e *Env) LeaseExpiresWhileOldWorkerRuns() Spec {
 	spec := e.baseSpec("lease_expires_old_worker_running", "SIGSTOP a worker past its lease with requests in flight, then SIGCONT")
 	spec.Declared = map[string]int{"worker_pauses": pauses}
 	spec.Evidence = allOf(expiredLeases, staleAttempts, duplicateAnswers)
+	// Traffic must last through every pause, or a pause freezes an idle worker.
+	const secondsPerPause = 7
+	spec.EventsPerRoute = int(float64(pauses*secondsPerPause+3) * spec.Rate)
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		cluster := run.Cluster
 		route := cluster.Routes[0]
-		for cycle := range pauses {
+		for range pauses {
 			if err := sleep(ctx, 2*time.Second); err != nil {
 				return nil, err
 			}
@@ -330,7 +333,10 @@ func (e *Env) LeaseExpiresWhileOldWorkerRuns() Spec {
 			if err := sleep(ctx, 200*time.Millisecond); err != nil {
 				return nil, err
 			}
-			process := cluster.Worker(cycle % cluster.Options.Workers)
+			process, err := cluster.BusiestWorker(ctx)
+			if err != nil {
+				return nil, err
+			}
 			if err := process.Pause(); err != nil {
 				return nil, err
 			}
