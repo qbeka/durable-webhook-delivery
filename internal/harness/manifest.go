@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"time"
 
@@ -128,6 +129,44 @@ func busiestProcesses() string {
 	output := command("ps", "-Aco", "pcpu=,comm=", "-r")
 	lines := strings.Split(output, "\n")
 	return strings.Join(lines[:min(5, len(lines))], "; ")
+}
+
+// QuietGate waits for other work on the machine before a repetition starts. The
+// machine is shared, and this project does not stop other people's processes.
+type QuietGate struct {
+	MaxCPUPercent float64       // 100 is one core
+	MaxWait       time.Duration // run anyway after this, and say so
+}
+
+// GateResult records the conditions a repetition really ran under.
+type GateResult struct {
+	BackgroundCPUPercent float64 `json:"background_cpu_percent"`
+	WaitedSeconds        float64 `json:"waited_seconds"`
+	Contended            bool    `json:"contended"`
+}
+
+// Wait returns once the machine is quiet enough or MaxWait has passed.
+func (g QuietGate) Wait(ctx context.Context) GateResult {
+	started := time.Now()
+	for {
+		percent := backgroundCPUPercent()
+		quiet := percent <= g.MaxCPUPercent
+		if quiet || time.Since(started) >= g.MaxWait || ctx.Err() != nil {
+			return GateResult{percent, time.Since(started).Seconds(), !quiet}
+		}
+		time.Sleep(15 * time.Second)
+	}
+}
+
+func backgroundCPUPercent() float64 {
+	var total float64
+	for _, line := range strings.Split(command("ps", "-Aco", "pcpu="), "\n") {
+		value, err := strconv.ParseFloat(strings.TrimSpace(line), 64)
+		if err == nil {
+			total += value
+		}
+	}
+	return total
 }
 
 func fileDigest(path string) (string, error) {
