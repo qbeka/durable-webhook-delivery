@@ -182,6 +182,15 @@ func (e *Env) Run(ctx context.Context, spec Spec) (Result, error) {
 		}
 		result.Latency[route.Tenant] = SummarizeLatency(rows, time.Time{}, time.Time{})
 		result.Outcomes[route.Tenant] = describeOutcomes(rows)
+		if key, found := findAmbiguousKey(rows); found {
+			trace, err := BuildTrace(ctx, spec.Name, key, rows)
+			if err != nil {
+				return Result{}, err
+			}
+			if err := writeJSON(filepath.Join(runDir, "trace.json"), trace); err != nil {
+				return Result{}, err
+			}
+		}
 	}
 	result.Verdict, result.VerdictReason = verdict(spec, result)
 	result.ElapsedSeconds = time.Since(started).Seconds()
