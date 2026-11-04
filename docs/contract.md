@@ -77,11 +77,16 @@ ingress transaction holds a shared lock on its source, and each subscription
 change holds the matching exclusive lock. Every event is therefore ordered
 either wholly before or wholly after each subscription change.
 
+The lock adds one promise that a snapshot alone cannot give: **when unsubscribe
+returns, no ingress still in progress can add a delivery for that destination.**
+Without it, an ingress that read the old subscriptions could commit a new delivery
+after the operator was told the change was done.
+
 | Situation | Result |
 |---|---|
 | Subscribe returned before the ingress request began | The event fans out to the new destination. |
 | Unsubscribe returned before the ingress request began | The event does not fan out to that destination. |
-| The two overlap | Either order is valid. The event sees the full old set or the full new set, never a mix. |
+| The two overlap | Either order is valid. |
 | Unsubscribe after the event committed | Existing deliveries still run. A subscription controls future fan-out only. |
 | Duplicate ingress after a subscription change | No new deliveries. Fan-out happens once, at first commit. |
 | Pausing a destination | Its deliveries wait. Nothing is dropped. |
