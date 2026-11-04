@@ -76,6 +76,36 @@ Decision: supported. With limits on, the healthy p99 stayed under 250 ms in ever
 
 Decision: supported.
 
+## H7, H8 and H9: replica failover
+
+| Replication | Rep | Verdict | Acknowledged events lost | Repeated | Missing effects | Dead | Unfinished | Unavailable s | Contended |
+|---|---:|---|---:|---:|---:|---:|---:|---:|---|
+| sync | 1 | pass | 0 | 0 | 0 | 0 | 0 | 3.29 | no |
+| sync | 2 | pass | 0 | 0 | 0 | 0 | 0 | 3.29 | no |
+| sync | 3 | pass | 0 | 0 | 0 | 0 | 0 | 3.28 | no |
+| sync | 4 | pass | 0 | 0 | 0 | 0 | 0 | 3.30 | no |
+| sync | 5 | pass | 0 | 0 | 0 | 0 | 0 | 3.32 | no |
+| async | 1 | control_detected | 320 | 0 | 10 | 0 | 0 | 2.26 | no |
+| async | 2 | control_detected | 214 | 0 | 15 | 0 | 0 | 2.26 | no |
+| async | 3 | control_detected | 422 | 0 | 11 | 0 | 0 | 2.27 | no |
+
+H7 decision: supported. H8 decision: the control lost acknowledged events in every repetition, so H7 is valid.
+
+H9, the cost at 1,000 events per second with 4 workers. p99 with synchronous replication: 196.8 (177.1 to 202.9) ms. p50: 98.0 (95.8 to 99.2) ms. Compare the 4 worker, 1,000 rung above. Both clusters share one drive, so this is an upper bound.
+
+## The formal model
+
+TLC checked `spec/DeliveryLease.tla`. The design must pass, and each control must fail.
+
+| Check | Expected | Found | Distinct states | Passed |
+|---|---|---|---:|---|
+| design, all safety properties | no error | no error | 9,484,492 | yes |
+| design, every delivery finishes once faults stop | no error | no error | 4,565 | yes |
+| receiver does not check the key | violates NoRepeatedEffect | violates NoRepeatedEffect | 276 | yes |
+| key and effect commit separately | violates SucceededHasEffect | violates SucceededHasEffect | 3,126 | yes |
+| receiver answers before it commits | violates SucceededHasEffect | violates SucceededHasEffect | 227 | yes |
+| finish ignores the lease token | violates SuccessIsStable | violates SuccessIsStable | 875 | yes |
+
 ## The generator's own limit
 
 Measured with no service behind it, so the service numbers above cannot be its limit.

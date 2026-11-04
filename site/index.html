@@ -1,0 +1,521 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Durable Webhook Delivery</title>
+<meta name="description" content="A durable webhook engine, proven with recorded crashes.">
+<style>
+/* Tokens from qendrimbeka.com, which took them from kobamoney.com. */
+:root {
+  color-scheme: light;
+  --ink: #111511; --body: #444944; --muted: #5a5e5a; --quiet: #8d918e;
+  --forest: #1d3a2a; --clay: #c4623a; --forest-soft: #7f9a8a;
+  --line: #11151117; --line-strong: #1115112e;
+  --tile: #6040200e; --tile-2: #60402017;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; background: #fff; -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: #fff; color: var(--ink); position: relative; overflow-x: hidden;
+  font: 16px/24px -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: #1d3a2a26; }
+:focus-visible { outline: 2px solid var(--forest); outline-offset: 3px; border-radius: 6px; }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong); text-underline-offset: 4px; transition: text-decoration-color .15s; }
+a:hover { text-decoration-color: currentColor; }
+
+/* The hairline behind the header is the recorded queue from the outage. */
+#ridge { position: absolute; inset: 0 0 auto 0; width: 100%; height: 620px; pointer-events: none; z-index: 0; }
+#ridge path { fill: none; stroke: var(--forest); vector-effect: non-scaling-stroke; stroke-linecap: round; }
+
+.page { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 80px 24px 80px; }
+h1 { font-size: clamp(2.25rem, 1.6rem + 2.6vw, 3rem); font-weight: 600; line-height: 1.04; letter-spacing: -.032em; margin: 0; }
+.lede { margin: 12px 0 0; max-width: 34rem; font-size: clamp(1.0625rem, 1rem + .3vw, 1.1875rem); line-height: 1.5; color: var(--body); }
+h2 { font-size: 1.5rem; font-weight: 600; line-height: 1.15; letter-spacing: -.028em; margin: 0 0 24px; }
+section { margin-top: 80px; }
+p { font-size: 15.5px; line-height: 1.65; color: var(--body); margin: 0 0 16px; }
+.pills { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.pill {
+  display: inline-flex; align-items: center; justify-content: center; height: 44px; padding: 0 20px;
+  border-radius: 999px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink);
+  font: inherit; font-size: 15px; font-weight: 600; letter-spacing: -.012em; text-decoration: none; cursor: pointer;
+  transition: background-color .15s;
+}
+.pill:hover:not(:disabled) { background: var(--tile); }
+.pill.dark { background: #121412; color: #fff; border-color: #ffffff26; box-shadow: 0 1px 2px #0000002e; }
+.pill.dark:hover:not(:disabled) { background: #2a2d2a; }
+.pill:disabled { color: var(--quiet); cursor: default; }
+.pill.small { height: 36px; padding: 0 16px; font-size: 14px; }
+.stats { margin: 40px 0 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.stat { background: #f7f6f3; border-radius: 18px; padding: 14px 16px; min-width: 0; }
+.stat dd { margin: 0; font-size: 1.5rem; font-weight: 600; line-height: 1; letter-spacing: -.028em; font-variant-numeric: tabular-nums; }
+.stat dt { margin-top: 6px; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.caption { font-size: 13px; line-height: 1.5; color: var(--muted); margin: 14px 0 0; }
+
+/* Replay */
+.sequence { display: block; width: 100%; height: auto; margin-bottom: 4px; }
+.lane { stroke: var(--line-strong); stroke-width: 1; }
+.lane-name { fill: var(--muted); font-size: 13px; }
+.msg { fill: none; stroke: var(--forest); stroke-width: 1.25; stroke-linecap: round; transition: stroke-dashoffset .5s ease, opacity .3s; }
+.msg.lost { stroke: var(--clay); stroke-dasharray: 3 4; }
+.dot { fill: var(--forest); transition: opacity .3s; }
+.dot.clay { fill: var(--clay); }
+.time-label { fill: var(--quiet); font-size: 12px; font-variant-numeric: tabular-nums; transition: opacity .3s; }
+.gap { fill: var(--tile-2); transition: opacity .4s; }
+.gap-label { fill: var(--muted); font-size: 12px; transition: opacity .4s; }
+.now { min-height: 76px; margin: 12px 0 0; }
+.now b { display: block; font-size: 1.1875rem; line-height: 1.3; font-weight: 600; letter-spacing: -.012em; color: var(--ink); }
+.now span { display: block; margin-top: 4px; font-size: 15px; line-height: 1.55; color: var(--body); }
+.beliefs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 0; }
+.belief { background: var(--tile); border-radius: 18px; padding: 12px 16px; min-width: 0; }
+.belief dd { margin: 0; font-size: 1.1875rem; font-weight: 600; letter-spacing: -.012em; line-height: 1.2; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.belief dt { margin-top: 4px; font-size: 13px; color: var(--muted); line-height: 1.35; }
+.belief.split { background: #c4623a14; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.controls .count { margin-left: auto; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Charts */
+.figure { margin-top: 32px; }
+.figure h3 { font-size: 15.5px; font-weight: 600; letter-spacing: -.012em; margin: 0; line-height: 1.4; }
+.figure .sub { font-size: 13px; color: var(--muted); margin: 0 0 8px; line-height: 1.5; }
+.chart { position: relative; touch-action: pan-y; }
+.chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+.grid { stroke: var(--line); stroke-width: 1; }
+.axis { fill: var(--quiet); font-size: 12px; font-variant-numeric: tabular-nums; }
+.band { fill: var(--tile); }
+.band-label { fill: var(--muted); font-size: 12px; }
+.series { fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+.legend i { display: inline-block; width: 14px; height: 1.5px; vertical-align: middle; margin-right: 6px; }
+.cross { stroke: var(--line-strong); stroke-width: 1; }
+.tip { position: absolute; pointer-events: none; display: none; z-index: 2; top: 8px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: 12px; line-height: 1.5; white-space: nowrap; box-shadow: 0 4px 16px #1115110f; }
+.tip .head { color: var(--muted); }
+.tip .row { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.tip .key { width: 12px; height: 1.5px; }
+.tip b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Lists */
+.rows { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+.rows li { display: grid; grid-template-columns: 148px 1fr; gap: 24px; padding: 18px 0; border-bottom: 1px solid var(--line); }
+.rows .key { font-size: 13px; line-height: 1.9; color: var(--muted); }
+.rows b { display: block; font-weight: 600; letter-spacing: -.012em; }
+.rows span.text { display: block; font-size: 15px; line-height: 1.55; color: var(--body); margin-top: 2px; }
+.results { width: 100%; border-collapse: collapse; font-size: 14px; }
+.results th { text-align: left; font-weight: 400; font-size: 13px; color: var(--muted); padding: 0 12px 10px 0; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.results td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--line); color: var(--body); vertical-align: top; font-variant-numeric: tabular-nums; }
+.results td:first-child { color: var(--ink); }
+.results .num { text-align: right; padding-right: 0; padding-left: 12px; white-space: nowrap; }
+.scroller { overflow-x: auto; }
+.results.evidence td { white-space: normal; min-width: 150px; line-height: 1.45; }
+details { margin-top: 20px; }
+summary { cursor: pointer; font-size: 14px; color: var(--muted); }
+summary:hover { color: var(--ink); }
+.table-wrap { max-height: 280px; overflow: auto; margin-top: 12px; }
+footer { margin-top: 80px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.6; color: var(--muted); }
+
+@media (max-width: 640px) {
+  .page { padding-top: 48px; }
+  .stats { grid-template-columns: repeat(2, 1fr); }
+  .beliefs { grid-template-columns: 1fr; }
+  .rows li { grid-template-columns: 1fr; gap: 2px; }
+  .controls .count { width: 100%; margin-left: 0; }
+  /* The diagram scales down with the screen, so its text must start larger. */
+  .lane-name { font-size: 22px; }
+  .time-label, .gap-label { font-size: 20px; }
+  .dot { r: 5px; }
+  #ridge { height: 520px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition-duration: .01ms !important; }
+}
+</style>
+</head>
+<body>
+<svg id="ridge" aria-hidden="true" preserveAspectRatio="none"></svg>
+<div class="page">
+  <header>
+    <h1>Durable webhook delivery</h1>
+    <p class="lede" id="lede"></p>
+    <div class="pills">
+      <a class="pill dark" href="#replay">Watch a crash</a>
+      <a class="pill" href="#evidence">See the evidence</a>
+    </div>
+    <dl class="stats" id="stats"></dl>
+    <p class="caption" id="ridgeCaption"></p>
+  </header>
+
+  <main>
+    <section aria-labelledby="problem">
+      <h2 id="problem">The problem</h2>
+      <p>A receiver records an expense, then the response is lost. The sender cannot tell
+      this from a request that never arrived, so it has to try again. Retry blindly and the
+      expense is recorded twice. Do not retry and it can be lost.</p>
+      <p>No sender can solve this alone. So this project defines what a receiver must do,
+      builds both sides, and then tries to break them on purpose.</p>
+    </section>
+
+    <section id="replay" aria-labelledby="replayTitle">
+      <h2 id="replayTitle">Watch one crash</h2>
+      <p>This is one delivery from a recorded run. The worker was killed after the receiver
+      committed, and before it could write down that it worked.</p>
+      <svg class="sequence" id="sequence" role="img" aria-label="Sequence of messages between engine, worker and receiver"></svg>
+      <div class="now" aria-live="polite"><b id="nowTitle"></b><span id="nowDetail"></span></div>
+      <dl class="beliefs">
+        <div class="belief" id="engineBox"><dd id="engineState"></dd><dt>Engine says the delivery is</dt></div>
+        <div class="belief" id="ledgerBox"><dd id="ledgerRows"></dd><dt>Expenses in the ledger</dt></div>
+        <div class="belief"><dd id="attemptCount"></dd><dt>Attempts started</dt></div>
+      </dl>
+      <div class="controls">
+        <button class="pill small dark" id="next" type="button">Next</button>
+        <button class="pill small" id="back" type="button">Back</button>
+        <button class="pill small" id="play" type="button">Play</button>
+        <span class="count" id="stepCount"></span>
+      </div>
+      <details>
+        <summary>Show every step</summary>
+        <ul class="rows" id="stepList" style="margin-top:12px"></ul>
+      </details>
+    </section>
+
+    <section aria-labelledby="outageTitle">
+      <h2 id="outageTitle">One destination fails. The others keep moving.</h2>
+      <p id="outageIntro"></p>
+      <div class="figure">
+        <h3>Deliveries waiting, by destination</h3>
+        <p class="sub">The failing queue grows through the outage, then drains.</p>
+        <div class="chart" id="queueChart"></div>
+      </div>
+      <div class="figure">
+        <h3>Healthy tenant latency</h3>
+        <p class="sub">Milliseconds from arrival to durable effect, per second of arrivals. Process start is left out.</p>
+        <div class="chart" id="latencyChart"></div>
+      </div>
+      <details>
+        <summary>Show this data as a table</summary>
+        <div class="table-wrap"><table class="results" id="dataTable"></table></div>
+      </details>
+    </section>
+
+    <section aria-labelledby="designTitle">
+      <h2 id="designTitle">How it holds</h2>
+      <ul class="rows" id="design"></ul>
+    </section>
+
+    <section id="evidence" aria-labelledby="evidenceTitle">
+      <h2 id="evidenceTitle">The evidence</h2>
+      <p id="evidenceIntro"></p>
+      <div class="scroller"><table class="results evidence" id="evidenceTable"></table></div>
+    </section>
+
+    <section aria-labelledby="scopeTitle">
+      <h2 id="scopeTitle">What these numbers cover</h2>
+      <div id="scope"></div>
+    </section>
+  </main>
+  <footer id="footer"></footer>
+</div>
+
+<script id="data" type="application/json">{"lede":"A webhook engine that survives crashes without losing an event or recording one twice, proven by killing it on purpose.","stats":[{"value":"2,000/s","label":"sustained, with a p99 of 164 ms"},{"value":"75","label":"workers killed on purpose"},{"value":"0","label":"repeated expenses, of 185,200"},{"value":"0","label":"acknowledged events lost in 5 failovers"}],"ridge_caption":"The line behind this page is not decoration. It is the recorded queue from the outage below.","evidence_intro":"A clean result only means something if the test could have failed. So each claim below is paired with a control that must fail. The plan was committed before the runs.","evidence":{"columns":["Claim","Result","Control"],"rows":[["30 minutes at 1,000 events per second","p99 63 to 68 ms, 1,800,000 effects reconciled","250 ms budget"],["Highest sustained rate","2,000/s with 4 workers","A rate above it failed the rule"],["100,000 events, 20,000 duplicates, 30 crashes","0 repeated, 0 missing","Naive receiver: 50 of 50 planted repeats found"],["5 primary failovers","0 acknowledged events lost","Async replication lost 320, 214, 422"],["Slow destination isolation","p99 62 ms","Limits off: 38,056 ms"],["Lease protocol, TLA+","9,484,492 states, no violation","4 of 4 broken designs caught"],["Test suite","30 of 30 mutants caught","Each mutant removes one rule"]]},"design":[{"key":"Commit first","title":"Nothing is sent before it is durable","text":"A worker commits its lease before the request leaves, so a crash at any line can be recovered."},{"key":"Lease tokens","title":"A late worker cannot change anything","text":"Each claim gets a new token. A worker that wakes after its lease ended is recorded, and ignored."},{"key":"Delivery keys","title":"One key, across every retry","text":"The receiver commits the key and the expense in one transaction, so a resend finds the key and writes nothing."},{"key":"Isolation","title":"One bad destination stays contained","text":"Limits are derived from leased rows, so a crash cannot leave them wrong, and a breaker stops wasted attempts."},{"key":"Failover","title":"An acknowledged event outlives its primary","text":"With synchronous replication, ingress answers only after the standby has the commit."}],"scope":["All numbers were measured on one Apple M5 Pro Mac on 2026-11-04, with PostgreSQL 17 flushing the drive cache on every commit. The load generator, engine, receiver and databases shared that machine and one drive.","The fault model is process death, lost responses and pauses. Power loss was not tested, and the failovers share one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared 2 second detection time."],"footer":"Offline replay of a recorded run. All data is synthetic.","trace":{"steps":[{"at":"2026-11-04T14:29:10.505683-06:00","actor":"engine","action":"event_committed","detail":"event evt-2026-161 and its delivery committed, then ingress answered 202"},{"at":"2026-11-04T14:29:10.530006-06:00","actor":"worker","action":"claim_committed","detail":"worker-5 committed lease 81cca2a4 for attempt 1 before sending"},{"at":"2026-11-04T14:29:10.563234-06:00","actor":"receiver","action":"effect_committed","detail":"attempt 1: key and expense committed together"},{"at":"2026-11-04T14:29:13.651864-06:00","actor":"engine","action":"lease_expired","detail":"lease 81cca2a4 expired with no report from worker-5"},{"at":"2026-11-04T14:29:17.422833-06:00","actor":"worker","action":"claim_committed","detail":"worker-18 committed lease e0886239 for attempt 2 before sending"},{"at":"2026-11-04T14:29:17.441325-06:00","actor":"receiver","action":"duplicate_detected","detail":"attempt 2: key already present, no new effect"},{"at":"2026-11-04T14:29:17.442071-06:00","actor":"worker","action":"attempt_recorded","detail":"attempt 2 recorded as success with status 200"}]},"outage":{"intro":"One destination turned slow for 60 seconds while another tenant kept sending. Per-destination limits held the healthy tenant's p99 at 62 ms. With them removed it reached 38,056 ms, about 610 times worse. The failing destination caught up 24 seconds after it recovered.","start_seconds":20.0,"end_seconds":80.0,"timeline":[{"offset_seconds":0.502464,"healthy_queue":16,"failing_queue":16,"healthy_p50_ms":44.300248,"healthy_p99_ms":154.291226,"healthy_count":286},{"offset_seconds":1.502464,"healthy_queue":16,"failing_queue":12,"healthy_p50_ms":44.067153,"healthy_p99_ms":55.136378,"healthy_count":287},{"offset_seconds":2.502464,"healthy_queue":19,"failing_queue":25,"healthy_p50_ms":45.25848,"healthy_p99_ms":62.427772,"healthy_count":291},{"offset_seconds":3.502464,"healthy_queue":17,"failing_queue":23,"healthy_p50_ms":44.287582,"healthy_p99_ms":58.535557,"healthy_count":261},{"offset_seconds":4.502464,"healthy_queue":19,"failing_queue":23,"healthy_p50_ms":45.484029,"healthy_p99_ms":58.507845,"healthy_count":281},{"offset_seconds":5.502464,"healthy_queue":9,"failing_queue":31,"healthy_p50_ms":46.349612,"healthy_p99_ms":61.504194,"healthy_count":289},{"offset_seconds":6.502464,"healthy_queue":17,"failing_queue":21,"healthy_p50_ms":44.57927,"healthy_p99_ms":56.356452,"healthy_count":301},{"offset_seconds":7.502464,"healthy_queue":23,"failing_queue":16,"healthy_p50_ms":45.22003,"healthy_p99_ms":64.387786,"healthy_count":317},{"offset_seconds":8.502464,"healthy_queue":12,"failing_queue":19,"healthy_p50_ms":44.010807,"healthy_p99_ms":58.716698,"healthy_count":287},{"offset_seconds":9.502464,"healthy_queue":18,"failing_queue":18,"healthy_p50_ms":44.307173,"healthy_p99_ms":59.585711,"healthy_count":282},{"offset_seconds":10.502464,"healthy_queue":18,"failing_queue":9,"healthy_p50_ms":44.892652,"healthy_p99_ms":58.052251,"healthy_count":305},{"offset_seconds":11.502464,"healthy_queue":15,"failing_queue":23,"healthy_p50_ms":45.148089,"healthy_p99_ms":63.616083,"healthy_count":291},{"offset_seconds":12.502464,"healthy_queue":9,"failing_queue":12,"healthy_p50_ms":43.584187,"healthy_p99_ms":63.123213,"healthy_count":272},{"offset_seconds":13.502464,"healthy_queue":23,"failing_queue":9,"healthy_p50_ms":45.355428,"healthy_p99_ms":64.83604,"healthy_count":291},{"offset_seconds":14.502464,"healthy_queue":22,"failing_queue":22,"healthy_p50_ms":45.891823,"healthy_p99_ms":60.417257,"healthy_count":305},{"offset_seconds":15.502464,"healthy_queue":27,"failing_queue":25,"healthy_p50_ms":44.921616,"healthy_p99_ms":58.675834,"healthy_count":293},{"offset_seconds":16.502464,"healthy_queue":13,"failing_queue":12,"healthy_p50_ms":44.942211,"healthy_p99_ms":61.395341,"healthy_count":298},{"offset_seconds":17.502464,"healthy_queue":14,"failing_queue":15,"healthy_p50_ms":44.556537,"healthy_p99_ms":58.09092,"healthy_count":318},{"offset_seconds":18.502464,"healthy_queue":20,"failing_queue":22,"healthy_p50_ms":44.207702,"healthy_p99_ms":57.236277,"healthy_count":300},{"offset_seconds":19.502464,"healthy_queue":9,"failing_queue":23,"healthy_p50_ms":45.219562,"healthy_p99_ms":59.911153,"healthy_count":258},{"offset_seconds":20.502464,"healthy_queue":15,"failing_queue":155,"healthy_p50_ms":41.935646,"healthy_p99_ms":54.435973,"healthy_count":304},{"offset_seconds":21.502464,"healthy_queue":13,"failing_queue":464,"healthy_p50_ms":41.361007,"healthy_p99_ms":55.18545,"healthy_count":291},{"offset_seconds":22.502464,"healthy_queue":11,"failing_queue":766,"healthy_p50_ms":41.898718,"healthy_p99_ms":54.392448,"healthy_count":296},{"offset_seconds":23.502464,"healthy_queue":19,"failing_queue":1049,"healthy_p50_ms":42.45655,"healthy_p99_ms":57.893081,"healthy_count":313},{"offset_seconds":24.502464,"healthy_queue":19,"failing_queue":1335,"healthy_p50_ms":40.347575,"healthy_p99_ms":53.228187,"healthy_count":313},{"offset_seconds":25.502464,"healthy_queue":24,"failing_queue":1663,"healthy_p50_ms":41.434194,"healthy_p99_ms":58.672803,"healthy_count":327},{"offset_seconds":26.502464,"healthy_queue":25,"failing_queue":1976,"healthy_p50_ms":41.449335,"healthy_p99_ms":55.723923,"healthy_count":303},{"offset_seconds":27.502464,"healthy_queue":19,"failing_queue":2261,"healthy_p50_ms":42.717961,"healthy_p99_ms":58.164596,"healthy_count":320},{"offset_seconds":28.502464,"healthy_queue":11,"failing_queue":2542,"healthy_p50_ms":42.239059,"healthy_p99_ms":60.498643,"healthy_count":273},{"offset_seconds":29.502464,"healthy_queue":17,"failing_queue":2840,"healthy_p50_ms":36.955118,"healthy_p99_ms":52.675594,"healthy_count":285},{"offset_seconds":30.502464,"healthy_queue":13,"failing_queue":3120,"healthy_p50_ms":38.346602,"healthy_p99_ms":52.141558,"healthy_count":309},{"offset_seconds":31.502464,"healthy_queue":27,"failing_queue":3464,"healthy_p50_ms":41.346185,"healthy_p99_ms":62.131343,"healthy_count":327},{"offset_seconds":32.502464,"healthy_queue":12,"failing_queue":3785,"healthy_p50_ms":37.357722,"healthy_p99_ms":56.773487,"healthy_count":313},{"offset_seconds":33.502464,"healthy_queue":9,"failing_queue":4087,"healthy_p50_ms":38.812944,"healthy_p99_ms":56.324577,"healthy_count":295},{"offset_seconds":34.502464,"healthy_queue":13,"failing_queue":4394,"healthy_p50_ms":41.132391,"healthy_p99_ms":57.21879,"healthy_count":292},{"offset_seconds":35.502464,"healthy_queue":8,"failing_queue":4709,"healthy_p50_ms":43.105654,"healthy_p99_ms":61.903059,"healthy_count":280},{"offset_seconds":36.502464,"healthy_queue":10,"failing_queue":5006,"healthy_p50_ms":39.596408,"healthy_p99_ms":57.198021,"healthy_count":285},{"offset_seconds":37.502464,"healthy_queue":12,"failing_queue":5318,"healthy_p50_ms":40.282079,"healthy_p99_ms":55.47127,"healthy_count":305},{"offset_seconds":38.502464,"healthy_queue":13,"failing_queue":5639,"healthy_p50_ms":39.864845,"healthy_p99_ms":55.194052,"healthy_count":319},{"offset_seconds":39.502464,"healthy_queue":20,"failing_queue":5955,"healthy_p50_ms":41.25819,"healthy_p99_ms":57.407784,"healthy_count":266},{"offset_seconds":40.502464,"healthy_queue":21,"failing_queue":6268,"healthy_p50_ms":39.29811,"healthy_p99_ms":55.423642,"healthy_count":273},{"offset_seconds":41.502464,"healthy_queue":15,"failing_queue":6577,"healthy_p50_ms":42.937173,"healthy_p99_ms":59.842339,"healthy_count":310},{"offset_seconds":42.502464,"healthy_queue":13,"failing_queue":6873,"healthy_p50_ms":43.659572,"healthy_p99_ms":60.443332,"healthy_count":307},{"offset_seconds":43.502464,"healthy_queue":9,"failing_queue":7191,"healthy_p50_ms":42.162991,"healthy_p99_ms":58.691899,"healthy_count":311},{"offset_seconds":44.502464,"healthy_queue":9,"failing_queue":7511,"healthy_p50_ms":40.350542,"healthy_p99_ms":58.759582,"healthy_count":277},{"offset_seconds":45.502464,"healthy_queue":11,"failing_queue":7809,"healthy_p50_ms":39.684273,"healthy_p99_ms":56.103754,"healthy_count":278},{"offset_seconds":46.502464,"healthy_queue":18,"failing_queue":8110,"healthy_p50_ms":39.816859,"healthy_p99_ms":53.54589,"healthy_count":328},{"offset_seconds":47.502464,"healthy_queue":16,"failing_queue":8404,"healthy_p50_ms":41.785058,"healthy_p99_ms":58.038828,"healthy_count":298},{"offset_seconds":48.502464,"healthy_queue":17,"failing_queue":8709,"healthy_p50_ms":41.712838,"healthy_p99_ms":60.641666,"healthy_count":289},{"offset_seconds":49.502464,"healthy_queue":11,"failing_queue":9022,"healthy_p50_ms":41.801993,"healthy_p99_ms":60.696228,"healthy_count":283},{"offset_seconds":50.502464,"healthy_queue":22,"failing_queue":9326,"healthy_p50_ms":40.532759,"healthy_p99_ms":54.911283,"healthy_count":300},{"offset_seconds":51.502464,"healthy_queue":9,"failing_queue":9633,"healthy_p50_ms":39.453022,"healthy_p99_ms":54.484494,"healthy_count":267},{"offset_seconds":52.502464,"healthy_queue":16,"failing_queue":9932,"healthy_p50_ms":40.341577,"healthy_p99_ms":56.150917,"healthy_count":284},{"offset_seconds":53.502464,"healthy_queue":14,"failing_queue":10244,"healthy_p50_ms":40.738636,"healthy_p99_ms":59.602805,"healthy_count":278},{"offset_seconds":54.502464,"healthy_queue":22,"failing_queue":10558,"healthy_p50_ms":40.134597,"healthy_p99_ms":54.472718,"healthy_count":298},{"offset_seconds":55.502464,"healthy_queue":16,"failing_queue":10862,"healthy_p50_ms":39.756417,"healthy_p99_ms":59.597617,"healthy_count":288},{"offset_seconds":56.502464,"healthy_queue":9,"failing_queue":11162,"healthy_p50_ms":40.624222,"healthy_p99_ms":57.529912,"healthy_count":333},{"offset_seconds":57.502464,"healthy_queue":17,"failing_queue":11443,"healthy_p50_ms":37.180915,"healthy_p99_ms":52.143385,"healthy_count":280},{"offset_seconds":58.502464,"healthy_queue":12,"failing_queue":11744,"healthy_p50_ms":39.484432,"healthy_p99_ms":53.548313,"healthy_count":308},{"offset_seconds":59.502464,"healthy_queue":18,"failing_queue":12064,"healthy_p50_ms":37.866106,"healthy_p99_ms":56.803252,"healthy_count":318},{"offset_seconds":60.502464,"healthy_queue":17,"failing_queue":12357,"healthy_p50_ms":39.262341,"healthy_p99_ms":54.576348,"healthy_count":288},{"offset_seconds":61.502464,"healthy_queue":17,"failing_queue":12684,"healthy_p50_ms":38.876606,"healthy_p99_ms":56.344519,"healthy_count":282},{"offset_seconds":62.502464,"healthy_queue":14,"failing_queue":12980,"healthy_p50_ms":41.6033,"healthy_p99_ms":56.872614,"healthy_count":336},{"offset_seconds":63.502464,"healthy_queue":14,"failing_queue":13299,"healthy_p50_ms":48.501911,"healthy_p99_ms":80.880144,"healthy_count":289},{"offset_seconds":64.502464,"healthy_queue":14,"failing_queue":13581,"healthy_p50_ms":38.942269,"healthy_p99_ms":59.742385,"healthy_count":322},{"offset_seconds":65.502464,"healthy_queue":18,"failing_queue":13903,"healthy_p50_ms":39.198277,"healthy_p99_ms":55.700147,"healthy_count":267},{"offset_seconds":66.502464,"healthy_queue":17,"failing_queue":14204,"healthy_p50_ms":44.395859,"healthy_p99_ms":77.010368,"healthy_count":298},{"offset_seconds":67.502464,"healthy_queue":20,"failing_queue":14500,"healthy_p50_ms":44.339296,"healthy_p99_ms":64.837331,"healthy_count":303},{"offset_seconds":68.502464,"healthy_queue":16,"failing_queue":14770,"healthy_p50_ms":44.93154,"healthy_p99_ms":66.425502,"healthy_count":329},{"offset_seconds":69.502464,"healthy_queue":12,"failing_queue":15105,"healthy_p50_ms":38.287142,"healthy_p99_ms":53.399963,"healthy_count":293},{"offset_seconds":70.502464,"healthy_queue":7,"failing_queue":15432,"healthy_p50_ms":39.674611,"healthy_p99_ms":58.258478,"healthy_count":321},{"offset_seconds":71.502464,"healthy_queue":16,"failing_queue":15753,"healthy_p50_ms":36.814309,"healthy_p99_ms":55.040844,"healthy_count":285},{"offset_seconds":72.502464,"healthy_queue":6,"failing_queue":16073,"healthy_p50_ms":39.622448,"healthy_p99_ms":58.710305,"healthy_count":288},{"offset_seconds":73.502464,"healthy_queue":12,"failing_queue":16361,"healthy_p50_ms":43.085922,"healthy_p99_ms":73.538035,"healthy_count":308},{"offset_seconds":74.502464,"healthy_queue":20,"failing_queue":16676,"healthy_p50_ms":52.475815,"healthy_p99_ms":89.481567,"healthy_count":282},{"offset_seconds":75.502464,"healthy_queue":11,"failing_queue":16987,"healthy_p50_ms":40.718177,"healthy_p99_ms":70.106686,"healthy_count":288},{"offset_seconds":76.502464,"healthy_queue":17,"failing_queue":17292,"healthy_p50_ms":41.901155,"healthy_p99_ms":62.773765,"healthy_count":295},{"offset_seconds":77.502464,"healthy_queue":8,"failing_queue":17599,"healthy_p50_ms":40.001706,"healthy_p99_ms":60.18104,"healthy_count":283},{"offset_seconds":78.502464,"healthy_queue":10,"failing_queue":17866,"healthy_p50_ms":38.14645,"healthy_p99_ms":54.100469,"healthy_count":281},{"offset_seconds":79.502464,"healthy_queue":23,"failing_queue":18162,"healthy_p50_ms":37.75036,"healthy_p99_ms":52.121111,"healthy_count":302},{"offset_seconds":80.502464,"healthy_queue":13,"failing_queue":18473,"healthy_p50_ms":37.835695,"healthy_p99_ms":50.962319,"healthy_count":324},{"offset_seconds":81.503464,"healthy_queue":6,"failing_queue":18750,"healthy_p50_ms":36.395503,"healthy_p99_ms":52.632751,"healthy_count":258},{"offset_seconds":82.503464,"healthy_queue":12,"failing_queue":19035,"healthy_p50_ms":39.994099,"healthy_p99_ms":56.936989,"healthy_count":314},{"offset_seconds":83.503464,"healthy_queue":14,"failing_queue":19323,"healthy_p50_ms":37.749187,"healthy_p99_ms":55.188247,"healthy_count":327},{"offset_seconds":84.503464,"healthy_queue":12,"failing_queue":18340,"healthy_p50_ms":39.432886,"healthy_p99_ms":54.775113,"healthy_count":304},{"offset_seconds":85.503464,"healthy_queue":6,"failing_queue":17388,"healthy_p50_ms":39.740998,"healthy_p99_ms":52.906551,"healthy_count":287},{"offset_seconds":86.503464,"healthy_queue":9,"failing_queue":16448,"healthy_p50_ms":39.420796,"healthy_p99_ms":52.05108,"healthy_count":286},{"offset_seconds":87.503464,"healthy_queue":12,"failing_queue":15449,"healthy_p50_ms":40.992865,"healthy_p99_ms":56.939912,"healthy_count":283},{"offset_seconds":88.503464,"healthy_queue":14,"failing_queue":14579,"healthy_p50_ms":39.483861,"healthy_p99_ms":56.215519,"healthy_count":297},{"offset_seconds":89.503464,"healthy_queue":13,"failing_queue":13684,"healthy_p50_ms":41.90866,"healthy_p99_ms":58.69567,"healthy_count":292},{"offset_seconds":90.503464,"healthy_queue":20,"failing_queue":12750,"healthy_p50_ms":38.518305,"healthy_p99_ms":56.561619,"healthy_count":310},{"offset_seconds":91.503464,"healthy_queue":15,"failing_queue":11843,"healthy_p50_ms":39.987658,"healthy_p99_ms":56.932769,"healthy_count":274},{"offset_seconds":92.503464,"healthy_queue":29,"failing_queue":11049,"healthy_p50_ms":53.716846,"healthy_p99_ms":82.347535,"healthy_count":316},{"offset_seconds":93.503464,"healthy_queue":12,"failing_queue":10392,"healthy_p50_ms":48.712502,"healthy_p99_ms":67.273491,"healthy_count":296},{"offset_seconds":94.503464,"healthy_queue":17,"failing_queue":9690,"healthy_p50_ms":53.470822,"healthy_p99_ms":112.959367,"healthy_count":299},{"offset_seconds":95.503464,"healthy_queue":20,"failing_queue":8984,"healthy_p50_ms":43.052376,"healthy_p99_ms":61.340968,"healthy_count":306},{"offset_seconds":96.503464,"healthy_queue":16,"failing_queue":8132,"healthy_p50_ms":47.948343,"healthy_p99_ms":75.762368,"healthy_count":303},{"offset_seconds":97.503464,"healthy_queue":21,"failing_queue":7446,"healthy_p50_ms":48.770123,"healthy_p99_ms":63.74937,"healthy_count":286},{"offset_seconds":98.503464,"healthy_queue":20,"failing_queue":6699,"healthy_p50_ms":47.545048,"healthy_p99_ms":63.441348,"healthy_count":321},{"offset_seconds":99.503464,"healthy_queue":28,"failing_queue":5739,"healthy_p50_ms":53.406422,"healthy_p99_ms":72.119163,"healthy_count":284},{"offset_seconds":100.503464,"healthy_queue":13,"failing_queue":4748,"healthy_p50_ms":42.853053,"healthy_p99_ms":60.658812,"healthy_count":316},{"offset_seconds":101.503464,"healthy_queue":0,"failing_queue":3648,"healthy_p50_ms":44.055511,"healthy_p99_ms":60.684719,"healthy_count":40},{"offset_seconds":102.503464,"healthy_queue":0,"failing_queue":2399,"healthy_p50_ms":0,"healthy_p99_ms":0,"healthy_count":0},{"offset_seconds":103.503464,"healthy_queue":0,"failing_queue":1079,"healthy_p50_ms":0,"healthy_p99_ms":0,"healthy_count":0}]}}</script>
+<script>
+"use strict";
+// A function scope, because names like `top` are taken on the global object.
+(() => {
+const DATA = JSON.parse(document.getElementById("data").textContent);
+const el = (id) => document.getElementById(id);
+const SVG = "http://www.w3.org/2000/svg";
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const number = (value) => Math.round(value).toLocaleString("en-US");
+function node(parent, name, attributes = {}, text) {
+  const made = document.createElementNS(SVG, name);
+  for (const [key, value] of Object.entries(attributes)) made.setAttribute(key, value);
+  if (text !== undefined) made.textContent = text;
+  parent.append(made);
+  return made;
+}
+function html(parent, name, className, text) {
+  const made = document.createElement(name);
+  if (className) made.className = className;
+  if (text !== undefined) made.textContent = text;
+  parent.append(made);
+  return made;
+}
+
+// Plain content. Everything here is text, never markup.
+el("lede").textContent = DATA.lede;
+for (const stat of DATA.stats) {
+  const box = html(el("stats"), "div", "stat");
+  html(box, "dd", "", stat.value);
+  html(box, "dt", "", stat.label);
+}
+el("ridgeCaption").textContent = DATA.ridge_caption;
+el("outageIntro").textContent = DATA.outage.intro;
+el("evidenceIntro").textContent = DATA.evidence_intro;
+for (const item of DATA.design) {
+  const row = html(el("design"), "li");
+  html(row, "span", "key", item.key);
+  const text = html(row, "div");
+  html(text, "b", "", item.title);
+  html(text, "span", "text", item.text);
+}
+const evidence = el("evidenceTable");
+const headRow = evidence.createTHead().insertRow();
+DATA.evidence.columns.forEach((title) => html(headRow, "th", "", title));
+const evidenceBody = evidence.createTBody();
+for (const row of DATA.evidence.rows) {
+  const line = evidenceBody.insertRow();
+  row.forEach((value, index) => {
+    const cell = line.insertCell();
+    cell.textContent = value;
+  });
+}
+for (const paragraph of DATA.scope) html(el("scope"), "p", "", paragraph);
+el("footer").textContent = DATA.footer;
+
+// The ridge: one hairline, then echoes that lose detail as they rise.
+(function drawRidge() {
+  const ridge = el("ridge");
+  const width = 1600, height = 620;
+  ridge.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  const values = DATA.outage.timeline.map((p) => p.failing_queue);
+  const peak = Math.max(...values, 1);
+  const samples = 260;
+  const shape = Array.from({ length: samples }, (_, index) => {
+    const at = (index / (samples - 1)) * (values.length - 1);
+    const low = Math.floor(at), high = Math.min(values.length - 1, low + 1);
+    return (values[low] + (values[high] - values[low]) * (at - low)) / peak;
+  });
+  const smooth = (source, radius) => source.map((_, index) => {
+    let sum = 0, count = 0;
+    for (let k = -radius; k <= radius; k++) {
+      const value = source[index + k];
+      if (value !== undefined) { sum += value; count += 1; }
+    }
+    return sum / count;
+  });
+  const echoes = 9;
+  for (let echo = 0; echo < echoes; echo++) {
+    const line = smooth(shape, 1 + echo * 3);
+    const base = 560 - echo * 30;
+    const lift = 400 * (1 - echo * 0.085);
+    const path = line.map((value, index) =>
+      `${index ? "L" : "M"}${((index / (samples - 1)) * width).toFixed(1)} ${(base - value * lift).toFixed(1)}`).join("");
+    const stroke = node(ridge, "path", { d: path });
+    stroke.style.strokeWidth = "1px";
+    stroke.style.opacity = String(0.42 * (1 - echo / echoes) ** 1.5);
+  }
+  // The pen moves left to right. A clip, because dash animation and
+  // non-scaling strokes do not work together.
+  if (!still) {
+    ridge.animate([{ clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0 0 0)" }],
+      { duration: 2800, easing: "cubic-bezier(.4,0,.2,1)", fill: "forwards" });
+  }
+})();
+
+// Replay
+const steps = DATA.trace.steps;
+const startTime = new Date(steps[0].at).getTime();
+const LANES = { engine: 96, worker: 340, receiver: 584 };
+const copy = {
+  event_committed: ["The event is stored", "The event and its delivery commit in one transaction. Only then does ingress answer 202."],
+  claim_committed: ["A worker claims it", "The lease commits before any request leaves, so a crash from here on is recoverable."],
+  effect_committed: ["The receiver commits", "The delivery key and the expense commit together. The expense now exists."],
+  lease_expired: ["The lease runs out", "Silence. The worker was killed before it could report. The engine cannot know the expense exists, so it must send again."],
+  duplicate_detected: ["The receiver says duplicate", "The key is already there, so nothing new is written. The resend does no harm."],
+  attempt_recorded: ["The engine learns the truth", "The attempt is recorded. The delivery is finished, with one expense."],
+  request_refused: ["The receiver refuses", "Nothing is written."],
+};
+const seq = el("sequence");
+const rowHeight = 40, top = 34;
+const height = top + steps.length * rowHeight + 22;
+seq.setAttribute("viewBox", `0 0 680 ${height}`);
+const fragments = [];
+function stateAt(count) {
+  const state = { engine: "not created", ledger: 0, attempts: 0 };
+  for (const step of steps.slice(0, count)) {
+    switch (step.action) {
+      case "event_committed": state.engine = "pending"; break;
+      case "claim_committed": state.engine = "leased"; state.attempts += 1; break;
+      case "effect_committed": state.ledger += 1; break;
+      case "lease_expired": state.engine = "pending"; break;
+      case "attempt_recorded":
+        if (step.detail.includes("as success")) state.engine = "succeeded";
+        else if (!step.detail.includes("stale")) state.engine = "pending";
+        break;
+    }
+  }
+  return state;
+}
+
+// The ambiguous stretch, between the effect and the engine learning of it.
+const effectIndex = steps.findIndex((s) => s.action === "effect_committed");
+const settledIndex = steps.findLastIndex ? steps.findLastIndex((s) => s.action === "attempt_recorded") : steps.length - 1;
+const yFor = (index) => top + index * rowHeight + 18;
+const gap = node(seq, "rect", { class: "gap", x: 0, y: yFor(effectIndex) + 8, width: 680, height: Math.max(0, yFor(settledIndex) - yFor(effectIndex) - 16), rx: 10 });
+const gapLabel = node(seq, "text", { class: "gap-label", x: (LANES.worker + LANES.receiver) / 2, y: yFor(effectIndex + 1) + 4, "text-anchor": "middle" }, "the two databases disagree");
+for (const [name, x] of Object.entries(LANES)) {
+  node(seq, "text", { class: "lane-name", x, y: 16, "text-anchor": "middle" }, name[0].toUpperCase() + name.slice(1));
+  node(seq, "line", { class: "lane", x1: x, x2: x, y1: top - 8, y2: height - 6 });
+}
+steps.forEach((step, index) => {
+  const y = yFor(index);
+  const group = [];
+  const seconds = (new Date(step.at).getTime() - startTime) / 1000;
+  group.push(node(seq, "text", { class: "time-label", x: 0, y: y + 4 }, seconds < 1 ? `${number(seconds * 1000)} ms` : `${seconds.toFixed(2)} s`));
+  const line = (from, to, lost) => {
+    const shape = node(seq, "line", { class: `msg${lost ? " lost" : ""}`, x1: LANES[from], x2: LANES[to], y1: y, y2: y });
+    group.push(shape);
+    group.push(node(seq, "circle", { class: `dot${lost ? " clay" : ""}`, cx: LANES[to], cy: y, r: 3 }));
+  };
+  const dot = (lane, clay) => group.push(node(seq, "circle", { class: `dot${clay ? " clay" : ""}`, cx: LANES[lane], cy: y, r: 3 }));
+  switch (step.action) {
+    case "event_committed": dot("engine"); break;
+    case "claim_committed": line("engine", "worker"); break;
+    case "effect_committed": line("worker", "receiver"); break;
+    case "lease_expired": dot("engine", true); break;
+    case "duplicate_detected": line("worker", "receiver"); break;
+    case "attempt_recorded": line("worker", "engine"); break;
+    default: dot("receiver", true);
+  }
+  fragments.push(group);
+});
+
+let position = 0, timer = null;
+function render() {
+  fragments.forEach((group, index) => group.forEach((shape) => { shape.style.opacity = index < position ? 1 : 0; }));
+  const state = stateAt(position);
+  const showGap = position > effectIndex && position <= settledIndex;
+  gap.style.opacity = showGap ? 1 : 0;
+  gapLabel.style.opacity = showGap ? 1 : 0;
+  el("engineState").textContent = state.engine;
+  el("ledgerRows").textContent = state.ledger;
+  el("attemptCount").textContent = state.attempts;
+  const split = showGap && state.engine !== "succeeded";
+  el("engineBox").classList.toggle("split", split);
+  el("ledgerBox").classList.toggle("split", split);
+  const step = steps[position - 1];
+  const [title, detail] = step ? (copy[step.action] ?? [step.action, step.detail])
+    : ["Press Next to begin", `${steps.length} moments, in the order they happened.`];
+  el("nowTitle").textContent = position === steps.length ? "One expense, despite the crash" : title;
+  el("nowDetail").textContent = position === steps.length
+    ? `${state.attempts} attempts, ${state.ledger} ledger row. A unique key turned the resend into a harmless duplicate.` : detail;
+  el("stepCount").textContent = `${position} of ${steps.length}`;
+  el("back").disabled = position === 0;
+  el("next").disabled = position === steps.length;
+}
+function move(delta) { position = Math.min(steps.length, Math.max(0, position + delta)); render(); }
+function stop() { clearInterval(timer); timer = null; el("play").textContent = "Play"; }
+el("next").onclick = () => { stop(); move(1); };
+el("back").onclick = () => { stop(); move(-1); };
+el("play").onclick = () => {
+  if (timer) return stop();
+  if (position === steps.length) position = 0;
+  el("play").textContent = "Pause";
+  move(1);
+  timer = setInterval(() => { move(1); if (position === steps.length) stop(); }, 1900);
+};
+render();
+for (const step of steps) {
+  const row = html(el("stepList"), "li");
+  html(row, "span", "key", `${number(new Date(step.at).getTime() - startTime)} ms, ${step.actor}`);
+  html(html(row, "div"), "span", "text", step.detail);
+}
+
+// Charts. One axis each: queue depth and latency are different units.
+function niceMax(value) {
+  if (value <= 0) return 1;
+  const power = 10 ** Math.floor(Math.log10(value));
+  for (const step of [1, 2, 2.5, 5, 10]) if (value <= step * power) return step * power;
+  return 10 * power;
+}
+function lineChart(container, points, series, band, unit, xMax) {
+  const legendRow = html(container, "div", "legend");
+  for (const item of series) {
+    const entry = html(legendRow, "span");
+    const key = html(entry, "i");
+    key.style.background = `var(${item.color})`;
+    entry.append(document.createTextNode(item.name));
+  }
+  const width = 672, height = 210, left = 46, right = 14, top = 10, bottom = 24;
+  const plotWidth = width - left - right, plotHeight = height - top - bottom;
+  const yMax = niceMax(Math.max(...points.flatMap((p) => series.map((s) => p[s.key] ?? 0))));
+  const x = (value) => left + (value / xMax) * plotWidth;
+  const y = (value) => top + plotHeight - (value / yMax) * plotHeight;
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", series.map((s) => s.name).join(" and ") + " over the run. A table follows.");
+  node(svg, "rect", { class: "band", x: x(band.start), y: top, width: x(band.end) - x(band.start), height: plotHeight, rx: 6 });
+  node(svg, "text", { class: "band-label", x: x(band.start) + 8, y: top + 16 }, "outage");
+  for (let tick = 0; tick <= 4; tick++) {
+    const value = (yMax * tick) / 4;
+    node(svg, "line", { class: "grid", x1: left, x2: left + plotWidth, y1: y(value), y2: y(value) });
+    node(svg, "text", { class: "axis", x: left - 8, y: y(value) + 4, "text-anchor": "end" }, number(value));
+  }
+  const xStep = xMax > 60 ? 20 : 5;
+  for (let value = 0; value <= xMax; value += xStep) {
+    node(svg, "text", { class: "axis", x: x(value), y: height - 4, "text-anchor": "middle" }, `${value}s`);
+  }
+  for (const item of series) {
+    const known = points.filter((p) => p[item.key] !== null && p[item.key] !== undefined);
+    const path = known.map((p, index) => `${index ? "L" : "M"}${x(p.x).toFixed(1)} ${y(p[item.key]).toFixed(1)}`).join("");
+    const line = node(svg, "path", { class: "series", d: path });
+    line.style.stroke = `var(${item.color})`;
+  }
+  const cross = node(svg, "line", { class: "cross", y1: top, y2: top + plotHeight, visibility: "hidden" });
+  container.append(svg);
+  const tip = html(container, "div", "tip");
+  const hide = () => { tip.style.display = "none"; cross.setAttribute("visibility", "hidden"); };
+  svg.addEventListener("pointermove", (event) => {
+    const box = svg.getBoundingClientRect();
+    const scale = width / box.width;
+    const pointerX = (event.clientX - box.left) * scale;
+    const nearest = points.reduce((best, p) => Math.abs(x(p.x) - pointerX) < Math.abs(x(best.x) - pointerX) ? p : best);
+    cross.setAttribute("x1", x(nearest.x));
+    cross.setAttribute("x2", x(nearest.x));
+    cross.setAttribute("visibility", "visible");
+    tip.replaceChildren();
+    html(tip, "div", "head", `${nearest.x.toFixed(0)} seconds in`);
+    for (const item of series) {
+      const row = html(tip, "div", "row");
+      const key = html(row, "span", "key");
+      key.style.background = `var(${item.color})`;
+      const reading = nearest[item.key];
+      html(row, "b", "", reading === null || reading === undefined ? "no data" : `${number(reading)}${unit}`);
+      row.append(document.createTextNode(item.name));
+    }
+    tip.style.display = "block";
+    const tipLeft = x(nearest.x) / scale;
+    const flip = tipLeft > box.width * 0.6;
+    tip.style.left = flip ? "auto" : `${tipLeft + 10}px`;
+    tip.style.right = flip ? `${box.width - tipLeft + 10}px` : "auto";
+  });
+  svg.addEventListener("pointerleave", hide);
+}
+const band = { start: DATA.outage.start_seconds, end: DATA.outage.end_seconds };
+const points = DATA.outage.timeline.map((p) => ({ ...p, x: p.offset_seconds }));
+const xMax = points[points.length - 1].x;
+lineChart(el("queueChart"), points, [
+  { key: "failing_queue", name: "Failing destination", color: "--clay" },
+  { key: "healthy_queue", name: "Healthy destination", color: "--forest" },
+], band, "", xMax);
+// The first seconds are process start, which the "before" window also leaves out.
+lineChart(el("latencyChart"), points.filter((p) => p.healthy_count > 0 && p.x >= 5), [
+  { key: "healthy_p99_ms", name: "p99", color: "--forest" },
+  { key: "healthy_p50_ms", name: "p50", color: "--forest-soft" },
+], band, " ms", xMax);
+const table = el("dataTable");
+const header = table.createTHead().insertRow();
+["Second", "Healthy queue", "Failing queue", "p50 ms", "p99 ms", "Events"].forEach((title, index) => html(header, "th", index ? "num" : "", title));
+const tableBody = table.createTBody();
+for (const p of points) {
+  const row = tableBody.insertRow();
+  [p.x.toFixed(0), p.healthy_queue, p.failing_queue, p.healthy_p50_ms.toFixed(1), p.healthy_p99_ms.toFixed(1), p.healthy_count]
+    .forEach((value, index) => { const cell = row.insertCell(); cell.textContent = value; if (index) cell.className = "num"; });
+}
+})();
+</script>
+</body>
+</html>

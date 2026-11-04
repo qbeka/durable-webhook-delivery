@@ -108,6 +108,7 @@ p { font-size: 15.5px; line-height: 1.65; color: var(--body); margin: 0 0 16px; 
 .results td:first-child { color: var(--ink); }
 .results .num { text-align: right; padding-right: 0; padding-left: 12px; white-space: nowrap; }
 .scroller { overflow-x: auto; }
+.results.evidence td { white-space: normal; min-width: 150px; line-height: 1.45; }
 details { margin-top: 20px; }
 summary { cursor: pointer; font-size: 14px; color: var(--muted); }
 summary:hover { color: var(--ink); }
@@ -206,7 +207,7 @@ footer { margin-top: 80px; padding-top: 20px; border-top: 1px solid var(--line);
     <section id="evidence" aria-labelledby="evidenceTitle">
       <h2 id="evidenceTitle">The evidence</h2>
       <p id="evidenceIntro"></p>
-      <div class="scroller"><table class="results" id="evidenceTable"></table></div>
+      <div class="scroller"><table class="results evidence" id="evidenceTable"></table></div>
     </section>
 
     <section aria-labelledby="scopeTitle">
@@ -261,16 +262,13 @@ for (const item of DATA.design) {
 }
 const evidence = el("evidenceTable");
 const headRow = evidence.createTHead().insertRow();
-DATA.evidence.columns.forEach((title, index) => {
-  const cell = html(headRow, "th", index ? "num" : "", title);
-});
+DATA.evidence.columns.forEach((title) => html(headRow, "th", "", title));
 const evidenceBody = evidence.createTBody();
 for (const row of DATA.evidence.rows) {
   const line = evidenceBody.insertRow();
   row.forEach((value, index) => {
     const cell = line.insertCell();
     cell.textContent = value;
-    if (index) cell.className = "num";
   });
 }
 for (const paragraph of DATA.scope) html(el("scope"), "p", "", paragraph);
@@ -451,8 +449,8 @@ function lineChart(container, points, series, band, unit, xMax) {
   svg.setAttribute("aria-label", series.map((s) => s.name).join(" and ") + " over the run. A table follows.");
   node(svg, "rect", { class: "band", x: x(band.start), y: top, width: x(band.end) - x(band.start), height: plotHeight, rx: 6 });
   node(svg, "text", { class: "band-label", x: x(band.start) + 8, y: top + 16 }, "outage");
-  for (let tick = 0; tick <= 3; tick++) {
-    const value = (yMax * tick) / 3;
+  for (let tick = 0; tick <= 4; tick++) {
+    const value = (yMax * tick) / 4;
     node(svg, "line", { class: "grid", x1: left, x2: left + plotWidth, y1: y(value), y2: y(value) });
     node(svg, "text", { class: "axis", x: left - 8, y: y(value) + 4, "text-anchor": "end" }, number(value));
   }

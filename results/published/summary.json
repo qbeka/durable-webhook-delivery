@@ -1,8 +1,38 @@
 {
-  "best": {
+  "sustained_rate_per_second": 2000,
+  "sustained_workers": 4,
+  "sustained_rate_by_workers": {
     "1": 1000,
     "2": 1500,
     "4": 2000
   },
-  "scenarios": 14
+  "sustained_p99_ms": 163.96645,
+  "sustained_p99_worst_ms": 168.533591,
+  "target_p99_ms_low": 63.197368,
+  "target_p99_ms_high": 67.998288,
+  "target_effects": 1800000,
+  "target_minutes": 30,
+  "healthy_p99_limits_on_ms": 62.436027,
+  "healthy_p99_limits_off_ms": 38055.997947,
+  "seconds_to_catch_up": 24.293424,
+  "peak_backlog": 18913,
+  "scenarios": 14,
+  "worker_crashes": 75,
+  "effects_under_fault": 185200,
+  "repeated_effects_under_fault": 0,
+  "missing_effects_under_fault": 0,
+  "parity_effects": 100000,
+  "parity_duplicates": 20000,
+  "control_repeats": 50,
+  "failovers": 5,
+  "failover_lost": 0,
+  "failover_unavailable_seconds": 3.289949,
+  "async_lost": [
+    320,
+    214,
+    422
+  ],
+  "sync_replication_p99_ms": 196.776519,
+  "model_states": 9484492,
+  "model_controls": 4
 }
