@@ -28,7 +28,7 @@ def main() -> None:
     start = config["lead_ns"] / 1e9
     end = start + config["outage_ns"] / 1e9
     data = {
-        "stats": stats["stats"],
+        **{key: value for key, value in stats.items() if key != "outage_intro"},
         "trace": {"steps": trace["steps"]},
         "outage": {
             "intro": stats["outage_intro"],
@@ -36,8 +36,6 @@ def main() -> None:
             "end_seconds": end,
             "timeline": [p for p in recovery["timeline"] if p["offset_seconds"] >= 0],
         },
-        "scope": stats["scope"],
-        "footer": stats["footer"],
     }
     template = (Path(__file__).parent.parent / "site/template.html").read_text()
     # "</" cannot appear inside a script element, so escape it in the JSON.
