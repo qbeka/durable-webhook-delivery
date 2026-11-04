@@ -64,6 +64,9 @@ type Spec struct {
 	// Evidence proves the fault reached the mechanism it targets. A scenario that
 	// passes without this proof tested nothing, so the run is invalid.
 	Evidence func(Result) error
+	// Measured counts delivered faults from what the run recorded, for a fault
+	// that Inject can only request.
+	Measured func(Result) map[string]int
 }
 
 // ScenarioRun is what Inject can see.
@@ -192,6 +195,11 @@ func (e *Env) Run(ctx context.Context, spec Spec) (Result, error) {
 			}
 		}
 	}
+	if spec.Measured != nil {
+		for name, count := range spec.Measured(result) {
+			result.DeliveredFault[name] = count
+		}
+	}
 	result.Verdict, result.VerdictReason = verdict(spec, result)
 	result.ElapsedSeconds = time.Since(started).Seconds()
 	return result, writeJSON(filepath.Join(runDir, "result.json"), result)
@@ -207,6 +215,14 @@ func verdict(spec Spec, result Result) (string, string) {
 	if spec.Evidence != nil {
 		if err := spec.Evidence(result); err != nil {
 			return "invalid", "the fault left no evidence: " + err.Error()
+		}
+	}
+	// A rejected event never enters the system, so reconciliation alone would see
+	// nothing wrong. Every event must get a final acknowledgement.
+	for _, summary := range result.Load {
+		if summary.Rejected+summary.Conflicts+summary.TimedOut > 0 || len(summary.UnackedIndexes) > 0 {
+			return "fail", fmt.Sprintf("ingress did not acknowledge every event: %d rejected, %d conflicts, %d timed out, %d unacknowledged",
+				summary.Rejected, summary.Conflicts, summary.TimedOut, len(summary.UnackedIndexes))
 		}
 	}
 	if !result.Drained {
@@ -258,9 +274,9 @@ func crashLoop(ctx context.Context, run *ScenarioRun, site string, crashes, minH
 					return
 				}
 				waitContext, cancel := context.WithTimeout(ctx, 30*time.Second)
-				crashed := cluster.Worker(slot).WaitForExit(waitContext)
+				cluster.Worker(slot).WaitForExit(waitContext)
 				cancel()
-				if crashed {
+				if cluster.Worker(slot).WasKilled() {
 					achieved.Add(1)
 				}
 			}

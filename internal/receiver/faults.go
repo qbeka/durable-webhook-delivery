@@ -54,7 +54,8 @@ func (f *Faults) takeStatusBurst() (status, retryAfterSeconds int) {
 	return f.active.StatusBurstCode, f.active.RetryAfterSeconds
 }
 
-func (f *Faults) waitBeforeCommit() {
+// waitBeforeCommit reports whether this request was delayed.
+func (f *Faults) waitBeforeCommit() bool {
 	f.mutex.Lock()
 	delay := time.Duration(0)
 	if f.active.DelayCount > 0 {
@@ -65,6 +66,7 @@ func (f *Faults) waitBeforeCommit() {
 	if delay > 0 {
 		time.Sleep(delay)
 	}
+	return delay > 0
 }
 
 func (f *Faults) takeAfterCommit() afterCommitAction {

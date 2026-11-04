@@ -124,7 +124,9 @@ func (r *Receiver) handle(w http.ResponseWriter, request *http.Request) {
 		w.WriteHeader(burst)
 		return
 	}
-	r.Faults.waitBeforeCommit()
+	if r.Faults.waitBeforeCommit() {
+		r.logRequest(incoming, "delayed")
+	}
 
 	// A sender that hangs up does not cancel the write. The effect either commits
 	// or it does not, and the sender's retry finds out which.
@@ -140,6 +142,7 @@ func (r *Receiver) handle(w http.ResponseWriter, request *http.Request) {
 	switch r.Faults.takeAfterCommit() {
 	case afterCommitDropResponse:
 		// Closes the connection with no response: the ambiguous acknowledgement.
+		r.logRequest(incoming, "dropped_response")
 		panic(http.ErrAbortHandler)
 	case afterCommitCrash:
 		_ = syscall.Kill(os.Getpid(), syscall.SIGKILL)

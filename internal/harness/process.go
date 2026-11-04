@@ -50,6 +50,16 @@ func (p *Process) Exited() bool {
 	return p.over.Load()
 }
 
+// WasKilled reports whether the process died from SIGKILL. A clean exit or a
+// failed start does not count, or a broken binary would look like a delivered crash.
+func (p *Process) WasKilled() bool {
+	if !p.over.Load() {
+		return false
+	}
+	status, ok := p.cmd.ProcessState.Sys().(syscall.WaitStatus)
+	return ok && status.Signaled() && status.Signal() == syscall.SIGKILL
+}
+
 // Kill sends SIGKILL and waits for the process to end.
 func (p *Process) Kill() {
 	_ = p.cmd.Process.Signal(syscall.SIGKILL)

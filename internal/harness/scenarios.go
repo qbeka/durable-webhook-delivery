@@ -64,6 +64,26 @@ func senderRetried(result Result) error {
 	return errors.New("no ingress request needed a retry")
 }
 
+// failedAttempts proves the fault reached the workers as failed requests.
+func failedAttempts(result Result) error {
+	if result.Reconcile.FailedAttempts == 0 {
+		return errors.New("no attempt failed")
+	}
+	return nil
+}
+
+// countOutcome counts rows of one outcome across receivers, for delivered faults
+// that only the receiver can see.
+func countOutcome(outcome, fault string) func(Result) map[string]int {
+	return func(result Result) map[string]int {
+		total := 0
+		for _, outcomes := range result.Outcomes {
+			total += outcomes[outcome]
+		}
+		return map[string]int{fault: total}
+	}
+}
+
 func injectedStatus(status int) func(Result) error {
 	return func(result Result) error {
 		if result.Outcomes["healthy"][fmt.Sprintf("injected_%d", status)] == 0 {
@@ -88,6 +108,7 @@ func (e *Env) Control() Spec {
 	spec := e.baseSpec("control_naive", "response lost after the receiver commits, naive receiver")
 	spec.Routes = []Route{HealthyRoute(receiver.ModeNaive)}
 	spec.Declared = map[string]int{"dropped_responses": drops}
+	spec.Measured = countOutcome("dropped_response", "dropped_responses")
 	spec.ControlExpectsRepeats = drops
 	spec.Inject = dropResponses(drops)
 	return spec
@@ -98,6 +119,7 @@ func (e *Env) ControlIdempotent() Spec {
 	drops := e.scaled(50)
 	spec := e.baseSpec("control_idempotent", "response lost after the receiver commits, reference receiver")
 	spec.Declared = map[string]int{"dropped_responses": drops}
+	spec.Measured = countOutcome("dropped_response", "dropped_responses")
 	spec.Inject = dropResponses(drops)
 	spec.Evidence = duplicateAnswers
 	return spec
@@ -109,9 +131,7 @@ func dropResponses(drops int) func(context.Context, *ScenarioRun) (map[string]in
 		if err := run.Cluster.SetFaults(route, receiver.FaultPlan{DropResponseAfterCommit: drops}); err != nil {
 			return nil, err
 		}
-		<-run.LoadDone
-		// Every drop is consumed well before the load ends, since each needs one request.
-		return map[string]int{"dropped_responses": drops}, nil
+		return nil, nil // the count comes from the receiver's log
 	}
 }
 
@@ -178,7 +198,8 @@ func (e *Env) TimeoutThenLateCommit() Spec {
 	requests := e.scaled(40)
 	spec := e.baseSpec("timeout_then_late_commit", "request times out, then the receiver commits anyway")
 	spec.Declared = map[string]int{"late_commits": requests}
-	spec.Evidence = duplicateAnswers
+	spec.Measured = countOutcome("delayed", "late_commits")
+	spec.Evidence = allOf(failedAttempts, duplicateAnswers)
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		err := run.Cluster.SetFaults(run.Cluster.Routes[0], receiver.FaultPlan{
 			DelayCount: requests, DelayBeforeCommit: run.Cluster.Options.RequestTimeout + 500*time.Millisecond,
@@ -186,7 +207,7 @@ func (e *Env) TimeoutThenLateCommit() Spec {
 		if err != nil {
 			return nil, err
 		}
-		return map[string]int{"late_commits": requests}, nil
+		return nil, nil // the count comes from the receiver's log
 	}
 	return spec
 }
@@ -233,6 +254,7 @@ func (e *Env) ReceiverRestart() Spec {
 	cycles := e.scaled(3)
 	spec := e.baseSpec("receiver_db_restart", "immediate stop of the receiver database, then restart")
 	spec.Declared = map[string]int{"database_crashes": cycles}
+	spec.Evidence = failedAttempts
 	spec.Inject = func(ctx context.Context, run *ScenarioRun) (map[string]int, error) {
 		for range cycles {
 			if err := sleep(ctx, 4*time.Second); err != nil {
@@ -272,9 +294,9 @@ func (e *Env) ReceiverCrash() Spec {
 				return nil, err
 			}
 			waitContext, cancel := context.WithTimeout(ctx, 10*time.Second)
-			crashed := cluster.Receiver(route).WaitForExit(waitContext)
+			cluster.Receiver(route).WaitForExit(waitContext)
 			cancel()
-			if crashed {
+			if cluster.Receiver(route).WasKilled() {
 				achieved++
 			}
 			if err := cluster.StartReceiver(ctx, route); err != nil {
@@ -356,6 +378,9 @@ func (e *Env) DestinationOffline(outage time.Duration) Spec {
 	spec := e.baseSpec("destination_offline", fmt.Sprintf("one destination offline for %v, another tenant keeps sending", outage))
 	spec.Routes = []Route{HealthyRoute(receiver.ModeIdempotent), FlakyRoute(receiver.ModeIdempotent)}
 	spec.Declared = map[string]int{"outages": 1}
+	spec.Evidence = failedAttempts
+	// Traffic must outlast the outage at every scale, or the outage tests nothing.
+	spec.EventsPerRoute = int((outage + 10*time.Second).Seconds() * spec.Rate)
 	spec.Inject = offlineInjector(outage)
 	return spec
 }
