@@ -15,3 +15,10 @@
 
 # Local tool settings
 /.claude/
+
+# Published runs keep summaries, manifests and compact latency in Git.
+# The full originals stay local. Manifests hold their hashes.
+/results/**/*.log
+/results/**/*.sends.csv.gz
+/results/**/effects-*.csv
+/results/**/effects-*.latency.csv.gz
