@@ -1,4 +1,4 @@
-.PHONY: build test mutants up down clean run stop send smoke faults
+.PHONY: build test mutants up down clean run stop send smoke faults spec report site
 
 build:
 	go build -o bin/ ./cmd/...
@@ -36,6 +36,20 @@ smoke: build up
 # The full fault suite, including the reference workload over HTTP.
 faults: build up
 	./bin/harness faults --out .run/faults
+
+# The TLA+ model. Needs the TLA+ Toolbox: brew install --cask tla+-toolbox
+spec:
+	python3 scripts/check_spec.py "/Applications/TLA+ Toolbox.app/Contents/Eclipse/tla2tools.jar"
+
+# Rebuild the report and the website from the recorded runs.
+report:
+	python3 scripts/report.py results/published > /dev/null
+
+site: report
+	python3 scripts/build_site.py \
+		--trace results/published/faults/kill_after_commit_before_ack/trace.json \
+		--recovery results/published/recovery/slow-limits-on/rep-2/recovery.json \
+		--stats results/site-stats.json --out site/index.html
 
 clean:
 	scripts/pg.sh destroy

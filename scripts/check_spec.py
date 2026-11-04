@@ -24,10 +24,16 @@ CHECKS = [
 ]
 
 
+def java_for(jar):
+    """Uses the runtime bundled with the TLA+ Toolbox when there is one."""
+    bundled = sorted(Path(jar).parent.glob("plugins/*openjdk*/Contents/Home/bin/java"))
+    return str(bundled[0]) if bundled else "java"
+
+
 def run(jar, config):
     with tempfile.TemporaryDirectory() as metadata:
         finished = subprocess.run(
-            ["java", "-XX:+UseParallelGC", "-cp", jar, "tlc2.TLC", "-deadlock", "-workers", "auto",
+            [java_for(jar), "-XX:+UseParallelGC", "-cp", jar, "tlc2.TLC", "-deadlock", "-workers", "auto",
              "-metadir", metadata, "-config", config, "DeliveryLease.tla"],
             cwd="spec", capture_output=True, text=True)
     return finished.stdout + finished.stderr
