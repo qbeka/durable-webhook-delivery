@@ -93,13 +93,31 @@ What was checked:
 - **Not low power mode.** It was off.
 
 What was not checked: nothing sampled drive latency during the final run, so it cannot show what
-the commits were waiting for. The 30 second period suggests a periodic writer somewhere, such as an
-operating system flush or another process, but that is a guess. Docker Desktop was running all day
-and other work shared the Mac. The final run's CPU bursts reached 12 cores, but its 5 second samples
-cannot be lined up with a one second stall.
+commits were waiting for.
 
-Decision: under `docs/preregistration-final.md`, the failed tests stand. The README quotes the rate
-that passed for ten minutes. A retest needs a quiet machine and a drive latency probe, and its result
-would be reported beside this one, not in place of it.
+## The retest
+
+`docs/preregistration-retest.md` froze one attempt at the two failed tests, with unchanged service
+code and a probe timing a small write and a full drive flush four times a second.
+
+| Test | Result | Stalls |
+|---|---|---:|
+| 2,000 per second, ten minutes, rep 1 | p99 378 ms, failed | 10, median gap 30 s |
+| 2,000 per second, ten minutes, rep 2 | p99 3,881 ms, failed | 9, median gap 58 s |
+| 2,000 per second, ten minutes, rep 3 | p99 586 ms, failed | 7, median gap 50 s |
+| Isolation, limits on, slow and offline, six reps | p99 56 to 68 ms, passed | 0 |
+
+The probe took 10,983 samples: p50 7.9 ms, p99 15.5 ms, max 134.4 ms. It never came near the length
+of a stall, so a slow drive flush does not explain the retest stalls. The probe wrote to its own
+file, so this says nothing about a queue inside PostgreSQL.
+
+Other work used 3 to 4 cores on median during the ten minute runs, with bursts to 14, and 1 to 3
+cores during isolation. The stalls came with the higher load, but the final run stalled at about 2
+cores and the exploratory runs were clean at about 2 to 3. Load alone does not explain them.
+
+Decision: 2,000 per second did not pass ten minutes, so 1,000 per second stays the sustained rate.
+This was the one attempt the plan allowed. H4 passed, and its failure in the final run stays on the
+record. The next step is to sample `pg_stat_activity` wait events through a stall. The exploratory
+sampler ran during two runs, and neither had a stall to catch.
 
 The evidence is in `results/exploratory/stall-2026-11-04/`.
