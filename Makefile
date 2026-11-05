@@ -28,7 +28,7 @@ test:
 mutants:
 	python3 scripts/mutants.py
 
-# About 90 seconds. Controls, the crash window and an outage, at low volume.
+# About 50 seconds. Controls, the crash window and an outage, at low volume.
 smoke: build up
 	./bin/harness faults --scale 0.1 --out .run/smoke \
 		--only control_naive,control_idempotent,kill_after_commit_before_ack,destination_offline

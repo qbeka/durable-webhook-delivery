@@ -49,15 +49,15 @@ make stop
 
 ## Check it
 
-Run the correctness suite against real PostgreSQL, with the race detector. It takes a few
-minutes.
+Run the correctness suite against real PostgreSQL, with the race detector. It takes about
+one minute.
 
 ```bash
 make up && make test
 ```
 
 Run a fault smoke test. It runs the negative control, the crash window and an outage in
-about 90 seconds.
+about 50 seconds.
 
 ```bash
 make smoke
