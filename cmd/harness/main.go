@@ -71,6 +71,10 @@ func runFaults(ctx context.Context, arguments []string) error {
 		return err
 	}
 	env := &harness.Env{Root: repositoryRoot(), OutDir: absolute, Scale: *scale, Seed: *seed}
+	manifest, err := harness.NewManifest(ctx, env.Root, "faults", *seed, map[string]any{"scale": *scale, "only": *only})
+	if err != nil {
+		return err
+	}
 	selected := map[string]bool{}
 	for _, name := range strings.Split(*only, ",") {
 		if name != "" {
@@ -96,6 +100,9 @@ func runFaults(ctx context.Context, arguments []string) error {
 		if result.Verdict != "pass" && result.Verdict != "control_detected" {
 			failed++
 		}
+	}
+	if err := manifest.Finish(absolute); err != nil {
+		return err
 	}
 	if failed > 0 {
 		return fmt.Errorf("%d scenarios did not pass", failed)
@@ -150,7 +157,7 @@ func runBench(ctx context.Context, arguments []string) error {
 			config.Name, repetition, result.OfferedRate, result.AcceptedRate, result.CompletedRate, 100*result.ErrorRate,
 			result.BacklogSlopePerSec, result.BacklogAtEnd, result.Latency, result.AckLatency.P99Ms,
 			result.DrainSeconds, result.Reconcile.Pass, result.Generator.SendLagP99Micros,
-			result.Machine.BackgroundCPUPercent, result.Machine.Contended)
+			result.Machine.DuringMedianPercent, result.Machine.Contended)
 	}
 	return manifest.Finish(filepath.Join(absolute, config.Name))
 }
@@ -221,13 +228,18 @@ func runGenerator(ctx context.Context, arguments []string) error {
 	if err != nil {
 		return err
 	}
+	root := repositoryRoot()
+	manifest, err := harness.NewManifest(ctx, root, "generator", *seed, map[string]any{"rates": *rates, "duration": duration.String()})
+	if err != nil {
+		return err
+	}
 	var results []harness.GeneratorResult
 	for _, text := range strings.Split(*rates, ",") {
 		rate, err := strconv.ParseFloat(text, 64)
 		if err != nil {
 			return err
 		}
-		result, err := harness.MeasureGenerator(ctx, repositoryRoot(), absolute, rate, *duration, *seed)
+		result, err := harness.MeasureGenerator(ctx, root, absolute, rate, *duration, *seed)
 		if err != nil {
 			return err
 		}
@@ -235,7 +247,10 @@ func runGenerator(ctx context.Context, arguments []string) error {
 			rate, result.AchievedRate, result.SendLagP50Us, result.SendLagP99Us, result.SendLagMaxUs)
 		results = append(results, result)
 	}
-	return harness.WriteJSON(filepath.Join(absolute, "generator.json"), results)
+	if err := harness.WriteJSON(filepath.Join(absolute, "generator.json"), results); err != nil {
+		return err
+	}
+	return manifest.Finish(absolute)
 }
 
 func runFailover(ctx context.Context, arguments []string) error {

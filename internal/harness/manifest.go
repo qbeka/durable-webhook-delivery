@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -140,33 +141,81 @@ type QuietGate struct {
 
 // GateResult records the conditions a repetition really ran under.
 type GateResult struct {
-	BackgroundCPUPercent float64 `json:"background_cpu_percent"`
+	BackgroundCPUPercent float64 `json:"background_cpu_percent"` // before the repetition
 	WaitedSeconds        float64 `json:"waited_seconds"`
+	DuringMedianPercent  float64 `json:"background_cpu_during_median_percent"` // while it ran
+	DuringMaxPercent     float64 `json:"background_cpu_during_max_percent"`
+	DuringSamples        int     `json:"background_cpu_during_samples"`
 	Contended            bool    `json:"contended"`
+}
+
+// projectProcesses are left out of the background figure. The benchmark's own CPU
+// is not interference.
+var projectProcesses = map[string]bool{
+	"hookd": true, "receiver": true, "loadgen": true, "harness": true, "postgres": true, "ps": true,
+}
+
+// Watch samples background CPU every 5 seconds until the returned function is
+// called, then adds the figures to the result. One reading before a repetition
+// says nothing about the ten minutes after it.
+func (g GateResult) Watch(limit float64) func() GateResult {
+	stop := make(chan struct{})
+	done := make(chan []float64, 1)
+	go func() {
+		var samples []float64
+		ticker := time.NewTicker(5 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-stop:
+				done <- samples
+				return
+			case <-ticker.C:
+				samples = append(samples, otherCPUPercent())
+			}
+		}
+	}()
+	return func() GateResult {
+		close(stop)
+		samples := <-done
+		result := g
+		result.DuringSamples = len(samples)
+		if len(samples) > 0 {
+			slices.Sort(samples)
+			result.DuringMedianPercent = samples[len(samples)/2]
+			result.DuringMaxPercent = samples[len(samples)-1]
+			result.Contended = result.Contended || result.DuringMedianPercent > limit
+		}
+		return result
+	}
+}
+
+// otherCPUPercent adds up CPU for every process outside this project.
+func otherCPUPercent() float64 {
+	var total float64
+	for _, line := range strings.Split(command("ps", "-Aco", "pcpu=,comm="), "\n") {
+		fields := strings.Fields(line)
+		if len(fields) < 2 || projectProcesses[fields[1]] {
+			continue
+		}
+		if value, err := strconv.ParseFloat(fields[0], 64); err == nil {
+			total += value
+		}
+	}
+	return total
 }
 
 // Wait returns once the machine is quiet enough or MaxWait has passed.
 func (g QuietGate) Wait(ctx context.Context) GateResult {
 	started := time.Now()
 	for {
-		percent := backgroundCPUPercent()
+		percent := otherCPUPercent()
 		quiet := percent <= g.MaxCPUPercent
 		if quiet || time.Since(started) >= g.MaxWait || ctx.Err() != nil {
-			return GateResult{percent, time.Since(started).Seconds(), !quiet}
+			return GateResult{BackgroundCPUPercent: percent, WaitedSeconds: time.Since(started).Seconds(), Contended: !quiet}
 		}
 		time.Sleep(15 * time.Second)
 	}
-}
-
-func backgroundCPUPercent() float64 {
-	var total float64
-	for _, line := range strings.Split(command("ps", "-Aco", "pcpu="), "\n") {
-		value, err := strconv.ParseFloat(strings.TrimSpace(line), 64)
-		if err == nil {
-			total += value
-		}
-	}
-	return total
 }
 
 func fileDigest(path string) (string, error) {

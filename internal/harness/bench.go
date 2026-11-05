@@ -73,7 +73,7 @@ type BenchResult struct {
 
 // RunBench runs one repetition from a clean database, then keeps its raw data.
 func RunBench(ctx context.Context, root, outDir string, config BenchConfig, repetition int, gate QuietGate) (BenchResult, error) {
-	machine := gate.Wait(ctx)
+	stopWatching := gate.Wait(ctx).Watch(gate.MaxCPUPercent)
 	started := time.Now()
 	runDir := filepath.Join(outDir, config.Name, fmt.Sprintf("rep-%d", repetition))
 	if err := os.RemoveAll(runDir); err != nil {
@@ -120,6 +120,7 @@ func RunBench(ctx context.Context, root, outDir string, config BenchConfig, repe
 	stopSampler()
 	samples := (<-samplerDone).samples
 
+	machine := stopWatching()
 	cluster.StopAll()
 	cluster.Store = nil
 	stream := workload.Stream{
