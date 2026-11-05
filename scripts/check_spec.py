@@ -20,7 +20,7 @@ CHECKS = [
     ("control-no-dedupe.cfg", "receiver does not check the key", "NoRepeatedEffect"),
     ("control-not-atomic.cfg", "key and effect commit separately", "SucceededHasEffect"),
     ("control-answer-first.cfg", "receiver answers before it commits", "SucceededHasEffect"),
-    ("control-no-token.cfg", "finish ignores the lease token", "SuccessIsStable"),
+    ("control-no-token.cfg", "no report checks the lease token", "SuccessIsStable"),
 ]
 
 

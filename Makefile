@@ -43,12 +43,12 @@ spec:
 
 # Rebuild the report and the website from the recorded runs.
 report:
-	python3 scripts/report.py results/published > /dev/null
+	python3 scripts/report.py results/final > /dev/null
 
 site: report
 	python3 scripts/build_site.py \
-		--trace results/published/faults/kill_after_commit_before_ack/trace.json \
-		--recovery results/published/recovery/slow-limits-on/rep-2/recovery.json \
+		--trace results/final/faults/kill_after_commit_before_ack/trace.json \
+		--recovery results/final/recovery/slow-limits-on/rep-2/recovery.json \
 		--stats results/site-stats.json --out site/index.html
 
 clean:

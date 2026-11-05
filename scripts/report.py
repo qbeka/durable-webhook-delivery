@@ -28,6 +28,7 @@ def sustained(result):
     rate = result["config"]["offered_events_per_second"]
     return (
         result["error_rate"] == 0
+        and abs(result["accepted_rate_per_second"] - rate) <= SLOPE_LIMIT * rate
         and result["arrival_to_effect_ms"]["p99_ms"] < P99_BUDGET_MS
         and abs(result["backlog_slope_per_second"]) <= SLOPE_LIMIT * rate
         and result["reconcile"]["pass"]
@@ -46,14 +47,14 @@ def latency_cell(results, key):
 
 def contended_note(results):
     count = sum(1 for r in results if r["machine"]["contended"])
-    cpu = statistics.median(r["machine"]["background_cpu_percent"] for r in results)
+    cpu = statistics.median(r["machine"]["background_cpu_during_median_percent"] for r in results)
     return f"{count} of {len(results)}, background CPU {cpu:,.0f}%"
 
 
 def ladder_section(root):
     lines = ["## H2 and H3: the highest sustained rate", ""]
-    lines += ["| Workers | Offered per second | Sustained | Completed per second | p50 ms | p99 ms | Backlog slope per second | Contended reps |",
-              "|---:|---:|---|---:|---:|---:|---:|---|"]
+    lines += ["| Workers | Offered per second | Sustained | Accepted per second | Completed per second | p50 ms | p95 ms | p99 ms | Backlog slope per second | Failed or timed out | Contended reps |",
+              "|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---|"]
     best = {}
     for directory in sorted((root / "ladder").glob("ladder-w*"),
                             key=lambda p: tuple(int(x) for x in p.name.replace("ladder-w", "").split("-r"))):
@@ -66,32 +67,37 @@ def ladder_section(root):
         if passed:
             best[workers] = max(best.get(workers, 0), rate)
         slopes = [r["backlog_slope_per_second"] for r in results]
+        failed = sum(r["timed_out_events"] + r["rejected_events"] for r in results)
         lines.append(f"| {workers} | {rate:,.0f} | {'yes' if passed else 'no'} | "
+                     f"{median_range([r['accepted_rate_per_second'] for r in results])} | "
                      f"{median_range([r['completed_rate_per_second'] for r in results])} | "
-                     f"{latency_cell(results, 'p50_ms')} | {latency_cell(results, 'p99_ms')} | "
-                     f"{median_range(slopes, 1)} | {contended_note(results)} |")
+                     f"{latency_cell(results, 'p50_ms')} | {latency_cell(results, 'p95_ms')} | {latency_cell(results, 'p99_ms')} | "
+                     f"{median_range(slopes, 1)} | {failed} | {contended_note(results)} |")
     lines.append("")
     return lines, best
 
 
 def target_section(root):
-    directories = sorted((root / "target").glob("*"))
-    lines = ["## H1: the target", ""]
-    results = repetitions(directories[0]) if directories else []
-    if not results:
-        return lines + ["Not run.", ""], None
-    lines += ["| Rep | Completed per second | p50 ms | p95 ms | p99 ms | Max ms | Backlog slope | Error rate | Reconciled | Effects counted | Contended |",
-              "|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---|"]
-    for result in results:
-        latency = result["arrival_to_effect_ms"]
-        lines.append(f"| {result['repetition']} | {result['completed_rate_per_second']:,.1f} | {latency['p50_ms']:.1f} | "
-                     f"{latency['p95_ms']:.1f} | {latency['p99_ms']:.1f} | {latency['max_ms']:.1f} | "
-                     f"{result['backlog_slope_per_second']:.2f} | {result['error_rate']:.4f} | "
-                     f"{'yes' if result['reconcile']['pass'] else 'no'} | {latency['count']:,} | "
-                     f"{'yes' if result['machine']['contended'] else 'no'} |")
-    passed = len(results) >= 3 and all(sustained(r) for r in results)
-    lines += ["", f"Decision: {'supported' if passed else 'not supported'}.", ""]
-    return lines, {"passed": passed, "results": results}
+    """H1 and H1b: three ten-minute runs of each configuration."""
+    lines = ["## H1: ten-minute runs", ""]
+    summary = {}
+    lines += ["| Configuration | Rep | Accepted per second | Completed per second | p50 ms | p95 ms | p99 ms | Max ms | Backlog slope | Error rate | Reconciled | Effects counted | Contended |",
+              "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---|"]
+    for directory in sorted((root / "target").glob("target-*")):
+        results = repetitions(directory)
+        for result in results:
+            latency = result["arrival_to_effect_ms"]
+            lines.append(f"| {directory.name} | {result['repetition']} | {result['accepted_rate_per_second']:,.1f} | "
+                         f"{result['completed_rate_per_second']:,.1f} | {latency['p50_ms']:.1f} | {latency['p95_ms']:.1f} | "
+                         f"{latency['p99_ms']:.1f} | {latency['max_ms']:.1f} | {result['backlog_slope_per_second']:.2f} | "
+                         f"{result['error_rate']:.4f} | {'yes' if result['reconcile']['pass'] else 'no'} | {latency['count']:,} | "
+                         f"{'yes' if result['machine']['contended'] else 'no'} |")
+        summary[directory.name] = {"passed": len(results) >= 3 and all(sustained(r) for r in results), "results": results}
+    lines.append("")
+    for name, entry in summary.items():
+        lines.append(f"{name}: {'supported' if entry['passed'] else 'not supported'}.")
+    lines.append("")
+    return lines, summary
 
 
 def recovery_section(root):
@@ -112,12 +118,14 @@ def recovery_section(root):
             f"{median_range([r['seconds_to_drain_after_outage'] for r in results], 1)} | "
             f"{', '.join(r['verdict'] for r in results)} | {contended_note(results)} |")
     lines.append("")
-    if "slow-limits-on" in summary and "slow-limits-off" in summary:
-        on = all(r["healthy_during_ms"]["p99_ms"] < P99_BUDGET_MS for r in summary["slow-limits-on"])
+    if "slow-limits-on" in summary and "slow-limits-off" in summary and "offline-limits-on" in summary:
+        protected = {name: all(r["healthy_during_ms"]["p99_ms"] < P99_BUDGET_MS for r in summary[name])
+                     for name in ("slow-limits-on", "offline-limits-on")}
         off = all(r["healthy_during_ms"]["p99_ms"] >= P99_BUDGET_MS for r in summary["slow-limits-off"])
-        lines += [f"Decision: {'supported' if on and off else 'not supported'}. With limits on, the healthy "
-                  f"p99 stayed under {P99_BUDGET_MS} ms in every repetition: {'yes' if on else 'no'}. "
-                  f"With limits off, it did not: {'yes' if off else 'no'}.", ""]
+        lines += [f"Decision: {'supported' if all(protected.values()) and off else 'not supported'}. "
+                  f"Healthy p99 under {P99_BUDGET_MS} ms in every repetition with a slow destination: {'yes' if protected['slow-limits-on'] else 'no'}. "
+                  f"With an offline destination: {'yes' if protected['offline-limits-on'] else 'no'}. "
+                  f"Above it in every repetition with limits off: {'yes' if off else 'no'}.", ""]
     return lines, summary
 
 
@@ -154,8 +162,8 @@ def faults_section(root):
     return lines, scenarios
 
 
-def failover_section():
-    root = Path("results/failover")
+def failover_section(base):
+    root = base / "failover"
     lines = ["## H7, H8 and H9: replica failover", ""]
     if not root.exists():
         return lines + ["Not run.", ""]
@@ -185,8 +193,17 @@ def failover_section():
     return lines
 
 
-def spec_section():
-    path = Path("results/spec/tlc.json")
+def mutants_section(root):
+    path = root / "mutants.txt"
+    if not path.exists():
+        return []
+    summary = [line for line in path.read_text().splitlines() if "mutants caught" in line]
+    return ["## Mutation check", "", (summary[-1] if summary else "Not finished.") + ". These are targeted: each one removes a rule "
+            "this project depends on, and runs against a named test.", ""]
+
+
+def spec_section(root):
+    path = root / "tlc.json"
     lines = ["## The formal model", ""]
     if not path.exists():
         return lines + ["Not run.", ""]
@@ -215,7 +232,7 @@ def generator_section(root):
 
 
 def main():
-    root = Path(sys.argv[1] if len(sys.argv) > 1 else "results/published")
+    root = Path(sys.argv[1] if len(sys.argv) > 1 else "results/final")
     manifest_paths = sorted(root.glob("**/manifest.json"))
     commits = sorted({load(p)["commit"][:7] for p in manifest_paths})
     trees = sorted({load(p)["working_tree"] for p in manifest_paths})
@@ -232,7 +249,7 @@ def main():
     lines += target + ladder
     if best:
         lines += ["Highest sustained rate: " + ", ".join(f"{w} worker{'s' if w > 1 else ''}: {r:,.0f} per second" for w, r in sorted(best.items())) + ".", ""]
-    lines += recovery + flush_section(root) + faults + failover_section() + spec_section() + generator_section(root)
+    lines += recovery + flush_section(root) + faults + failover_section(root) + spec_section(root) + mutants_section(root) + generator_section(root)
     Path("docs/report.md").write_text("\n".join(lines))
     print("\n".join(lines))
     summary = headline(root, best, target_summary, recovery_summary, scenarios)
@@ -240,34 +257,44 @@ def main():
     write_site_stats(summary)
 
 
-def headline(root, best, target, recovery, scenarios):
+def headline(root, best, targets, recovery, scenarios):
     """The figures quoted anywhere outside this report, all read from result files."""
-    top = max(best)
+    top = max(best, key=lambda workers: best[workers])
     top_results = repetitions(root / "ladder" / f"ladder-w{top}-r{best[top]:.0f}")
-    target_p99 = [r["arrival_to_effect_ms"]["p99_ms"] for r in target["results"]]
+    target = targets["target-r1000-w2"]
+    long_top = targets.get("target-r2000-w4")
+    p99 = lambda results: [r["arrival_to_effect_ms"]["p99_ms"] for r in results]
     runs = [s for s in scenarios if s["scenario"] != "control_naive"]
     crashes = sum(v for s in scenarios for k, v in s["delivered_faults"].items()
                   if k in ("worker_crashes", "before_send", "request_written", "after_response"))
+    databases = sum(v for s in scenarios for k, v in s["delivered_faults"].items() if k == "database_crashes")
     parity = next(s for s in scenarios if s["scenario"] == "reference_parity")
     control = next(s for s in scenarios if s["scenario"] == "control_naive")
-    failover = Path("results/failover")
-    sync = [load(p) for p in sorted((failover / "failover-sync").glob("rep-*/failover.json"))]
-    lossy = [load(p) for p in sorted((failover / "failover-async").glob("rep-*/failover.json"))]
-    cost = repetitions(failover / "replication-cost-r1000-w4")
-    spec = load("results/spec/tlc.json")
+    sync = [load(p) for p in sorted((root / "failover" / "failover-sync").glob("rep-*/failover.json"))]
+    lossy = [load(p) for p in sorted((root / "failover" / "failover-async").glob("rep-*/failover.json"))]
+    cost = repetitions(root / "failover" / "replication-cost-r1000-w4")
+    spec = load(root / "tlc.json")
+    mutants = [line for line in (root / "mutants.txt").read_text().splitlines() if "mutants caught" in line]
     return {
         "sustained_rate_per_second": best[top], "sustained_workers": top,
         "sustained_rate_by_workers": {str(k): v for k, v in best.items()},
-        "sustained_p99_ms": statistics.median(r["arrival_to_effect_ms"]["p99_ms"] for r in top_results),
-        "sustained_p99_worst_ms": max(r["arrival_to_effect_ms"]["p99_ms"] for r in top_results),
-        "target_p99_ms_low": min(target_p99), "target_p99_ms_high": max(target_p99),
+        "sustained_p99_ms": statistics.median(p99(top_results)),
+        "long_run_at_top_passed": bool(long_top and long_top["passed"]),
+        "long_run_at_top_p99_low": min(p99(long_top["results"])) if long_top else None,
+        "long_run_at_top_p99_high": max(p99(long_top["results"])) if long_top else None,
+        "long_run_at_top_effects": sum(r["reconcile"]["distinct_effects"] for r in long_top["results"]) if long_top else None,
+        "target_passed": target["passed"],
+        "target_p99_ms_low": min(p99(target["results"])), "target_p99_ms_high": max(p99(target["results"])),
         "target_effects": sum(r["reconcile"]["distinct_effects"] for r in target["results"]),
         "target_minutes": 10 * len(target["results"]),
         "healthy_p99_limits_on_ms": statistics.median(r["healthy_during_ms"]["p99_ms"] for r in recovery["slow-limits-on"]),
+        "healthy_p99_limits_on_worst_ms": max(r["healthy_during_ms"]["p99_ms"] for r in recovery["slow-limits-on"]),
+        "healthy_p99_offline_ms": statistics.median(r["healthy_during_ms"]["p99_ms"] for r in recovery["offline-limits-on"]),
+        "healthy_p99_offline_worst_ms": max(r["healthy_during_ms"]["p99_ms"] for r in recovery["offline-limits-on"]),
         "healthy_p99_limits_off_ms": statistics.median(r["healthy_during_ms"]["p99_ms"] for r in recovery["slow-limits-off"]),
         "seconds_to_catch_up": statistics.median(r["seconds_to_drain_after_outage"] for r in recovery["slow-limits-on"]),
-        "peak_backlog": statistics.median(r["peak_backlog_failing_destination"] for r in recovery["slow-limits-on"]),
-        "scenarios": len(scenarios), "worker_crashes": crashes,
+        "scenarios": len(scenarios), "all_scenarios_passed": all(s["verdict"] in ("pass", "control_detected") for s in scenarios),
+        "worker_crashes": crashes, "database_crashes": databases,
         "effects_under_fault": sum(s["reconcile"]["expected_effects"] for s in runs),
         "repeated_effects_under_fault": sum(s["reconcile"]["repeated_effects"] for s in runs),
         "missing_effects_under_fault": sum(s["reconcile"]["missing_effects"] for s in runs),
@@ -276,8 +303,10 @@ def headline(root, best, target, recovery, scenarios):
         "failovers": len(sync), "failover_lost": sum(r["scenario"]["reconcile"]["missing_events"] for r in sync),
         "failover_unavailable_seconds": statistics.median(r["unavailable_seconds"] for r in sync),
         "async_lost": [r["scenario"]["reconcile"]["missing_events"] for r in lossy],
-        "sync_replication_p99_ms": statistics.median(r["arrival_to_effect_ms"]["p99_ms"] for r in cost),
+        "async_missing_effects": [r["scenario"]["reconcile"]["missing_effects"] for r in lossy],
+        "sync_replication_p99_ms": statistics.median(p99(cost)),
         "model_states": spec[0]["distinct_states"], "model_controls": sum(1 for r in spec if r["expected_violation"]),
+        "mutants": mutants[-1] if mutants else "not recorded",
     }
 
 
