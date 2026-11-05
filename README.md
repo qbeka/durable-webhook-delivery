@@ -10,10 +10,10 @@ the receiver must do, builds both sides, and tries to break them on purpose.
 | | |
 |---|---|
 | **Sustained load** | 1,000 events per second for 30 minutes, p99 63 to 71 ms, from arrival to durable effect, flushing the drive cache on every commit |
-| **Peak load** | 2,000 events per second in 60 second runs, p99 86 to 94 ms. The ten minute test at this rate failed: p99 1,099 to 1,497 ms. |
+| **Peak load** | 2,000 events per second in 60 second runs, p99 86 to 94 ms. It failed the ten minute test twice, with p99s from 378 to 3,881 ms and nothing lost. |
 | **Crash safety** | 75 workers killed and 6 databases crashed across 185,200 deliveries: 0 repeated, 0 missing |
 | **Failover** | 5 primary failovers: 0 acknowledged events lost. The asynchronous control lost 196 to 273. |
-| **Isolation** | During a slow destination, a healthy tenant's p99 was 58 to 642 ms. With limits off it was 37,592 to 40,089 ms. The 250 ms budget was missed in 2 of 3 runs. |
+| **Isolation** | During a slow destination, a healthy tenant's p99 was 58 to 67 ms in a retest, against 34,899 to 36,945 ms with limits off. The first attempt missed the 250 ms budget in 2 of 3 runs. |
 | **Formal model** | 9,484,492 TLA+ states with no violation. 4 of 4 deliberately broken designs were caught. |
 | **Test quality** | 39 of 39 targeted mutants caught |
 
@@ -110,7 +110,7 @@ must fail.
 |---|---|
 | 0 repeated effects under crashes | A naive receiver under the same fault showed exactly 50 of 50 planted repeats |
 | 0 acknowledged events lost in failover | Asynchronous replication under the same fault lost 196, 210 and 273 engine rows, and 6 to 8 expenses |
-| Limits protect a healthy tenant | With limits off, its median p99 rose about 95 times |
+| Limits protect a healthy tenant | With limits off, its median p99 rose about 600 times in the retest |
 | The protocol is safe | Removing any one of 4 rules gives a TLA+ counterexample |
 | The tests catch mistakes | 39 of 39 deliberately broken versions failed a test. These are targeted, not random. |
 
@@ -125,33 +125,40 @@ must fail.
 ## Benchmark summary
 
 Every run flushed the drive cache on each commit, using `wal_sync_method=fsync_writethrough`. All
-of it comes from one commit, `7ba5980`. A rate is sustained when all three repetitions meet the
+of it comes from one commit, `7ba5980`, except a retest of the two tests that failed. The retest
+used the same service code and is in `results/retest`. A rate is sustained when all three repetitions meet the
 rule: no errors, accepted rate within 1% of offered, p99 under 250 ms, no backlog growth, and
 complete reconciliation.
 
 | Test | Result | Decision |
 |---|---|---|
 | 1,000 per second, 2 workers, three 10 minute runs | p99 63 to 71 ms, 1,800,000 effects | Passed |
-| 2,000 per second, 4 workers, three 10 minute runs | p99 1,099 to 1,497 ms, 3,600,000 effects, none lost | **Failed** |
+| 2,000 per second, 4 workers, three 10 minute runs | p99 1,099 to 1,497 ms, none lost | **Failed** |
+| Retest of that test | p99 378, 3,881 and 586 ms, none lost | **Failed** |
 | 1 worker, 60 second ladder | Highest sustained rate 1,000 per second, p99 57 ms | Measured |
 | 2 workers, 60 second ladder | No rung passed. See below. | Measured |
 | 4 workers, 60 second ladder | Highest sustained rate 2,000 per second, p99 93 ms | Measured |
 | 4 workers beat 1 worker | 2,000 against 1,000 per second | Passed |
 | Limits hold a healthy tenant under 250 ms | 2 of 3 slow runs and 2 of 3 offline runs missed it | **Failed** |
+| Retest of that test | Slow p99 58 to 67 ms, offline 56 to 68 ms, limits off 34,899 to 36,945 ms | Passed |
 | 14 fault scenarios | 0 repeated, 0 missing, and the control caught 50 of 50 | Passed |
 | 5 failovers with synchronous replication | 0 acknowledged events lost, and the control lost events every time | Passed |
 
-**The two failures share a symptom.** For about an hour in the middle of the run, ingress and
-delivery stalled for about one second, every 30 seconds. The ten minute runs at 2,000 per second
-had 15 to 17 stalls each. The healthy tenant was hit before the outage as well as during it, so
-these runs show a stall, not a limit leak. With limits off, the same tenant waited 37 to 40
-seconds.
+**2,000 per second does not hold for ten minutes on this machine.** It passed 60 second runs and
+failed two sets of ten minute runs. The first set had a stall of about one second every 30
+seconds, and the second had 7 to 10 stalls per run, the worst about 4 seconds. Every effect still
+arrived exactly once, across 7,200,000 effects. Two exploratory runs at this rate, 9 and 4 minutes
+long, were clean, with p99s of 153 and 117 ms, so the failure is intermittent. Quote 1,000 per
+second as the sustained rate.
 
-**The cause is not known.** The stalls did not return in two later exploratory runs at the same
-rate on the same code, 9 and 4 minutes long, the second with a checkpoint running. Those p99s were
-153 and 117 ms. They are exploratory and do not replace the failed test. Docker and other work
-shared the Mac, but nothing recorded ties the stalls to them. The details are in
-[docs/experiments.md](docs/experiments.md).
+**The cause is not known.** The retest ran a probe beside the benchmark, and a full drive flush
+never took more than 134 ms, so a slow flush does not explain the retest stalls. Other work used 3
+to 4 cores during those runs, with bursts to 14. Nothing recorded ties the stalls to it. The details
+are in [docs/experiments.md](docs/experiments.md).
+
+**Isolation passed once the stalls were out of the way.** In the first attempt, stalls hit the
+healthy tenant before the outage as well as during it. In the retest there were none, and its p99
+stayed flat through the outage. Both results stay on the record.
 
 - **Two workers:** at 1,000 per second, 2 of 3 repetitions ran with over 8 cores of other work, and
   one reached 6,979 ms. At 1,500 per second, one repetition reached 533 ms. These 2 are among the 3
@@ -166,8 +173,7 @@ shared the Mac, but nothing recorded ties the stalls to them. The details are in
 - **The generator:** it reached 16,000 per second alone, so it did not limit these numbers.
 
 The full results are in [docs/report.md](docs/report.md). The first preregistered run, kept in
-`results/published`, passed isolation at 62 ms. It is superseded because the code changed after
-review, so quote `results/final`.
+`results/published`, is superseded because the code changed after review.
 
 ## What the numbers leave out
 

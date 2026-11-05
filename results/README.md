@@ -6,6 +6,7 @@ Each number in the README, the report and the resume bullets comes from a file h
 |---|---|---|
 | `reference/` | Three local runs of the supplied benchmark | Not applicable |
 | `final/` | **The run to quote.** Every experiment from one commit, as `scripts/run-final.sh` ran it. Start at `summary.json`. | `7ba5980` |
+| `retest/` | One more attempt at the two tests that failed in `final/`, with a drive flush probe | `38504f7` |
 | `published/` | The first preregistered run. Superseded after review, kept for comparison. | `3bbf3f6` |
 | `failover/` | The first failover run. Superseded by `final/failover`. | `d8ba1ed` |
 | `spec/` | TLC model checking results, copied into `final/` | See `git log` |
