@@ -87,14 +87,16 @@ func (s *Store) FinishAttempts(ctx context.Context, completions []Completion, br
 				lease_token = NULL, lease_owner = NULL, lease_expires_at = NULL
 			FROM reports r
 			WHERE d.id = r.id AND d.lease_token = r.token AND d.state = 'leased'
-			RETURNING d.id, d.destination_id
+			RETURNING d.id, d.destination_id, r.token
 		), history AS (
 			UPDATE delivery_attempts a SET
 				finished_at = clock_timestamp(),
 				outcome = r.outcome,
 				http_status = NULLIF(r.http_status, 0),
 				error = NULLIF(r.error_text, ''),
-				stale = NOT EXISTS (SELECT 1 FROM finished f WHERE f.id = r.id)
+				-- Match the token too: one batch can hold a stale report and the
+				-- current report for the same delivery.
+				stale = NOT EXISTS (SELECT 1 FROM finished f WHERE f.id = r.id AND f.token = r.token)
 			FROM reports r
 			-- A report already recorded stays as it is. If the commit's answer was
 			-- lost, the worker sends the same report again, and that second copy
@@ -106,27 +108,32 @@ func (s *Store) FinishAttempts(ctx context.Context, completions []Completion, br
 			       count(*) FILTER (WHERE r.counts_failure) AS failures,
 			       bool_or(r.next_state = 'succeeded') AS any_success,
 			       max(r.retry_after_seconds) AS retry_after_seconds
-			FROM finished f JOIN reports r ON r.id = f.id
+			FROM finished f JOIN reports r ON r.id = f.id AND r.token = f.token
 			GROUP BY f.destination_id
-		), counted AS (
-			SELECT p.*, CASE WHEN p.any_success THEN p.failures
-			                 ELSE d.consecutive_failures + p.failures END AS new_failures
-			FROM per_destination p JOIN destinations d ON d.id = p.destination_id
 		), breaker AS (
+			-- The count is computed here, from d, and never from a CTE. An UPDATE
+			-- that waited for a concurrent one rereads the row, while a CTE keeps
+			-- this statement's old snapshot and would lose that increment.
 			UPDATE destinations d SET
-				consecutive_failures = c.new_failures,
+				consecutive_failures = CASE WHEN p.any_success THEN p.failures
+				                            ELSE d.consecutive_failures + p.failures END,
 				not_before = GREATEST(
 					d.not_before,
-					clock_timestamp() + make_interval(secs => c.retry_after_seconds),
-					CASE WHEN c.failures > 0 AND c.new_failures >= $10::int
+					clock_timestamp() + make_interval(secs => p.retry_after_seconds),
+					CASE WHEN p.failures > 0
+					      AND (CASE WHEN p.any_success THEN p.failures
+					                ELSE d.consecutive_failures + p.failures END) >= $10::int
 					     THEN clock_timestamp() + make_interval(secs => LEAST(
 					         $12::double precision,
-					         $11::double precision * power(2, LEAST(c.new_failures - $10::int, 20))))
+					         $11::double precision * power(2, LEAST(
+					             (CASE WHEN p.any_success THEN p.failures
+					                   ELSE d.consecutive_failures + p.failures END) - $10::int, 20))))
 					     ELSE '-infinity'::timestamptz END)
-			FROM counted c
+			FROM per_destination p
 			-- The condition keeps a healthy destination's row from being rewritten
 			-- on every batch, which would contend with claims.
-			WHERE d.id = c.destination_id AND d.consecutive_failures IS DISTINCT FROM c.new_failures
+			WHERE d.id = p.destination_id
+			  AND (p.failures > 0 OR p.retry_after_seconds > 0 OR (p.any_success AND d.consecutive_failures > 0))
 		)
 		SELECT count(*) FROM finished`,
 		ids, tokens, states, retrySeconds, errorTexts, outcomes, statuses, countsFailure, retryAfterSeconds,

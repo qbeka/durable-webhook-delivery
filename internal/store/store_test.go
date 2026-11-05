@@ -510,6 +510,117 @@ func TestBatchWithoutSuccessAddsToTheBreakerCount(t *testing.T) {
 	}
 }
 
+// Reports from different workers can commit at the same moment. A count taken
+// from the statement's snapshot lost most of them.
+func TestConcurrentFailuresAreAllCounted(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 64)
+	ingestMany(t, database, "evt", 40)
+	jobs := claim(t, database, "worker", 40, time.Minute)
+	if len(jobs) != 40 {
+		t.Fatalf("got %d jobs", len(jobs))
+	}
+	failure := Finish{NextState: StatePending, Outcome: "connection_error", Error: "refused", RetryDelay: time.Hour, CountsFailure: true}
+	var group sync.WaitGroup
+	for _, job := range jobs {
+		group.Add(1)
+		go func() {
+			defer group.Done()
+			if _, err := database.FinishAttempt(context.Background(), job, failure, testBreaker); err != nil {
+				t.Error(err)
+			}
+		}()
+	}
+	group.Wait()
+	if got := countRows(t, database, `SELECT consecutive_failures FROM destinations`); got != 40 {
+		t.Fatalf("counted %d of 40 failures", got)
+	}
+}
+
+func TestStaleReportInABatchWithTheCurrentReportIsMarkedStale(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 4)
+	mustIngest(t, database, testEvent("evt", "body"))
+	ctx := context.Background()
+	old := claim(t, database, "old", 1, time.Millisecond)[0]
+	time.Sleep(5 * time.Millisecond)
+	if _, err := database.ExpireLeases(ctx, 10, 5, time.Hour, time.Millisecond, time.Millisecond); err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(5 * time.Millisecond)
+	current := claim(t, database, "new", 1, time.Minute)[0]
+	applied, err := database.FinishAttempts(ctx, []Completion{
+		{old, Finish{NextState: StatePending, Outcome: "timeout", CountsFailure: true}},
+		{current, Finish{NextState: StateSucceeded, Outcome: "success", HTTPStatus: 200}},
+	}, testBreaker)
+	if err != nil || applied != 1 {
+		t.Fatalf("applied=%d err=%v", applied, err)
+	}
+	if got := countRows(t, database, `SELECT count(*) FROM delivery_attempts WHERE stale AND lease_token = $1::uuid`, old.LeaseToken); got != 1 {
+		t.Fatal("the old report was not marked stale")
+	}
+	if got := countRows(t, database, `SELECT count(*) FROM delivery_attempts WHERE stale AND lease_token = $1::uuid`, current.LeaseToken); got != 0 {
+		t.Fatal("the current report was marked stale")
+	}
+	if got := countRows(t, database, `SELECT consecutive_failures FROM destinations`); got != 0 {
+		t.Fatalf("a stale report fed the breaker: %d", got)
+	}
+}
+
+// Retry-After must hold the destination even when the failure count does not
+// change, for example when a success in the same batch cancels it out.
+func TestRetryAfterHoldsEvenWhenTheCountDoesNotChange(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 8)
+	ingestMany(t, database, "evt", 5)
+	ctx := context.Background()
+	_, err := database.pool.Exec(ctx, `UPDATE destinations SET consecutive_failures = 1`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobs := claim(t, database, "worker", 2, time.Minute)
+	_, err = database.FinishAttempts(ctx, []Completion{
+		{jobs[0], Finish{NextState: StateSucceeded, Outcome: "success", HTTPStatus: 200}},
+		{jobs[1], Finish{NextState: StatePending, Outcome: "retryable_status", HTTPStatus: 429, CountsFailure: true, RetryAfter: time.Hour, RetryDelay: time.Hour}},
+	}, testBreaker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := claim(t, database, "worker", 3, time.Minute); len(got) != 0 {
+		t.Fatalf("claimed %d under a one hour hold", len(got))
+	}
+}
+
+func TestBreakerOpenPeriodGrowsWithFailures(t *testing.T) {
+	database := openTestStore(t)
+	addRoute(t, database, 8)
+	ingestMany(t, database, "evt", 8)
+	ctx := context.Background()
+	breaker := BreakerConfig{FailureThreshold: 2, BaseDelay: time.Second, MaxDelay: time.Hour}
+	failure := Finish{NextState: StatePending, Outcome: "connection_error", Error: "refused", RetryDelay: time.Hour, CountsFailure: true}
+	jobs, err := database.Claim(ctx, "worker", 8, time.Minute, breaker)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hold := func() int {
+		return countRows(t, database, `SELECT ceil(extract(epoch FROM not_before - now()))::int FROM destinations`)
+	}
+	completions := make([]Completion, 0, 2)
+	for _, job := range jobs[:2] {
+		completions = append(completions, Completion{job, failure})
+	}
+	if _, err := database.FinishAttempts(ctx, completions, breaker); err != nil {
+		t.Fatal(err)
+	}
+	first := hold()
+	if _, err := database.FinishAttempts(ctx, []Completion{{jobs[2], failure}, {jobs[3], failure}, {jobs[4], failure}}, breaker); err != nil {
+		t.Fatal(err)
+	}
+	if second := hold(); second <= first || first < 1 {
+		t.Fatalf("open period went from %d to %d seconds", first, second)
+	}
+}
+
 func TestExpiredLeaseBudgetEndsInDead(t *testing.T) {
 	database := openTestStore(t)
 	addRoute(t, database, 4)

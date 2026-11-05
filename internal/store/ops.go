@@ -12,6 +12,7 @@ import (
 // DestinationStatus is one row of the operator status view.
 type DestinationStatus struct {
 	DestinationID       int64   `json:"destination_id"`
+	TenantID            string  `json:"tenant_id"`
 	Name                string  `json:"name"`
 	Paused              bool    `json:"paused"`
 	ConsecutiveFailures int     `json:"consecutive_failures"`
@@ -26,7 +27,7 @@ type DestinationStatus struct {
 // Status returns delivery counts per destination.
 func (s *Store) Status(ctx context.Context) ([]DestinationStatus, error) {
 	rows, err := s.pool.Query(ctx, `
-		SELECT d.id, d.name, d.paused, d.consecutive_failures,
+		SELECT d.id, d.tenant_id, d.name, d.paused, d.consecutive_failures,
 		       GREATEST(extract(epoch FROM d.not_before - now()), 0)::double precision,
 		       count(*) FILTER (WHERE q.state = 'pending'),
 		       count(*) FILTER (WHERE q.state = 'leased'),
@@ -41,7 +42,7 @@ func (s *Store) Status(ctx context.Context) ([]DestinationStatus, error) {
 	}
 	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (DestinationStatus, error) {
 		var status DestinationStatus
-		err := row.Scan(&status.DestinationID, &status.Name, &status.Paused, &status.ConsecutiveFailures,
+		err := row.Scan(&status.DestinationID, &status.TenantID, &status.Name, &status.Paused, &status.ConsecutiveFailures,
 			&status.BreakerOpenSeconds, &status.Pending, &status.Leased, &status.Succeeded, &status.Dead,
 			&status.OldestPendingSecond)
 		return status, err
