@@ -402,7 +402,7 @@ def write_site_stats(s):
              "text": "With synchronous replication, ingress answers only after the standby has the commit."},
         ],
         "scope": [
-            "All numbers were measured on one Apple M5 Pro Mac on 2026-11-04, with PostgreSQL 17 flushing the drive cache on "
+            "All numbers were measured on one Apple M5 Pro Mac, with PostgreSQL 17 flushing the drive cache on "
             "every commit. The load generator, engine, receiver and databases shared that machine and one drive, and other work "
             "ran on it too.",
             "The cause of the stalls at 2,000 per second was not found. A drive flush probe stayed fast through the retest, so a "

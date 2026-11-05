@@ -17,7 +17,7 @@ the receiver must do, builds both sides, and tries to break them on purpose.
 | **Formal model** | 9,484,492 TLA+ states with no violation. 4 of 4 deliberately broken designs were caught. |
 | **Test quality** | 39 of 39 targeted mutants caught |
 
-Measured on 2026-11-04 on one Apple M5 Pro Mac with PostgreSQL 17. The load generator, engine,
+Measured on one Apple M5 Pro Mac with PostgreSQL 17. The load generator, engine,
 receiver and databases shared that machine and one drive, other work ran on it, and power loss
 was not tested. [What the numbers leave out](#what-the-numbers-leave-out) has the details.
 
