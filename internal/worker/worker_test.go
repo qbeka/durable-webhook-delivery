@@ -431,6 +431,62 @@ func TestFinishAfterTheLeaseEndedIsRecordedAsStale(t *testing.T) {
 	}
 }
 
+// A claim that took too long to reach the sender must not send: the lease is
+// nearly gone and another worker may already hold the delivery.
+func TestWorkerDoesNotSendPastItsLeaseDeadline(t *testing.T) {
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests.Add(1) }))
+	defer server.Close()
+	route := setUp(t, server.URL)
+	config := testConfig("w")
+	engine, err := New(config, route.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	job := store.Job{URL: server.URL, DeliveryKey: "k", Secret: "s", Payload: []byte("{}"), TenantID: "t"}
+	engine.deliver(job, time.Now().Add(-config.Lease))
+	if requests.Load() != 0 {
+		t.Fatal("sent a request after the lease deadline")
+	}
+}
+
+// The request is cut short to end before the lease, even when the timeout allows more.
+func TestRequestEndsBeforeItsLeaseDeadline(t *testing.T) {
+	release := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer server.Close()
+	defer close(release)
+	route := setUp(t, server.URL)
+	config := testConfig("w")
+	config.Lease = 2 * time.Second
+	config.LeaseMargin = 200 * time.Millisecond
+	config.RequestTimeout = 1500 * time.Millisecond
+	engine, err := New(config, route.database)
+	if err != nil {
+		t.Fatal(err)
+	}
+	drained := make(chan struct{})
+	go func() {
+		defer close(drained)
+		for range engine.completions {
+		}
+	}()
+	job := store.Job{URL: server.URL, DeliveryKey: "k", Secret: "s", Payload: []byte("{}"), TenantID: "t"}
+	// Only 300 ms of this lease remain before its deadline, far less than the timeout.
+	started := time.Now()
+	engine.deliver(job, started.Add(-(config.Lease - config.LeaseMargin - 300*time.Millisecond)))
+	if elapsed := time.Since(started); elapsed > 800*time.Millisecond {
+		t.Fatalf("the request ran %v, past its lease deadline", elapsed)
+	}
+	close(engine.completions)
+	<-drained
+}
+
 func TestConfigRefusesATimeoutThatCouldOutliveTheLease(t *testing.T) {
 	config := testConfig("w")
 	config.RequestTimeout = config.Lease
