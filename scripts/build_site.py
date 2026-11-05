@@ -9,6 +9,7 @@ sentence with a number on the page comes from a file a run produced or a person
 reviewed.
 """
 import argparse
+import base64
 import json
 from pathlib import Path
 
@@ -40,7 +41,9 @@ def main() -> None:
     template = (Path(__file__).parent.parent / "site/template.html").read_text()
     # "</" cannot appear inside a script element, so escape it in the JSON.
     payload = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
-    Path(arguments.out).write_text(template.replace("/*DATA*/", payload))
+    # The font is embedded so the page still makes no network requests.
+    font = base64.b64encode((Path(__file__).parent.parent / "site/fonts/GeistSerif-Regular.woff2").read_bytes()).decode()
+    Path(arguments.out).write_text(template.replace("/*FONT*/", font).replace("/*DATA*/", payload))
     print(f"wrote {arguments.out}")
 
 
