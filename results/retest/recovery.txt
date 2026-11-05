@@ -1,0 +1,9 @@
+slow-limits-on rep 1: pass healthy before p99 54.2ms during p99 60.6ms after p99 60.7ms peak backlog 18900 drain after outage 23.2s repeated=0 missing=0 dead=0
+slow-limits-on rep 2: pass healthy before p99 55.8ms during p99 57.9ms after p99 67.5ms peak backlog 19352 drain after outage 24.6s repeated=0 missing=0 dead=0
+slow-limits-on rep 3: pass healthy before p99 62.4ms during p99 66.6ms after p99 73.7ms peak backlog 18840 drain after outage 25.5s repeated=0 missing=0 dead=0
+slow-limits-off rep 1: pass healthy before p99 59.3ms during p99 36316.7ms after p99 7132.6ms peak backlog 17963 drain after outage 13.5s repeated=0 missing=0 dead=0
+slow-limits-off rep 2: pass healthy before p99 57.0ms during p99 34899.2ms after p99 7241.9ms peak backlog 18456 drain after outage 14.5s repeated=0 missing=0 dead=0
+slow-limits-off rep 3: pass healthy before p99 55.3ms during p99 36945.0ms after p99 7608.6ms peak backlog 17909 drain after outage 14.5s repeated=0 missing=0 dead=0
+offline-limits-on rep 1: pass healthy before p99 55.4ms during p99 58.8ms after p99 84.6ms peak backlog 19221 drain after outage 27.5s repeated=0 missing=0 dead=0
+offline-limits-on rep 2: pass healthy before p99 60.9ms during p99 68.1ms after p99 64.2ms peak backlog 18471 drain after outage 22.1s repeated=0 missing=0 dead=0
+offline-limits-on rep 3: pass healthy before p99 69.1ms during p99 56.2ms after p99 59.6ms peak backlog 17871 drain after outage 19.5s repeated=0 missing=0 dead=0

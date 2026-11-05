@@ -1,0 +1,84 @@
+{
+  "scenario": "slow-limits-off/rep-1",
+  "delivery": {
+    "delivery_key": "dk_2b5e9463acf78cf5bc8e78e1545822cb",
+    "state": "succeeded",
+    "attempt_count": 2,
+    "destination": "ledger",
+    "tenant_id": "flaky",
+    "source_id": "mail",
+    "event_id": "evt-8002-40",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "2783de9e2c83de454bd5ce183217794eee42fc89c1e3f92afe3043b8580848ba",
+    "received_at": "2026-11-04T22:25:55.065179-06:00",
+    "finished_at": "2026-11-04T22:25:57.199355-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "4f0e947c-38a6-4f0a-af80-013689cfb89e",
+        "worker_id": "worker-1",
+        "claimed_at": "2026-11-04T22:25:55.095348-06:00",
+        "finished_at": "2026-11-04T22:25:57.12732-06:00",
+        "outcome": "timeout",
+        "error": "request timed out",
+        "stale": false
+      },
+      {
+        "attempt_number": 2,
+        "lease_token": "c39d6a5e-fad6-4c3d-9634-c49bb2193d55",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T22:25:57.151519-06:00",
+        "finished_at": "2026-11-04T22:25:57.199667-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 76254,
+  "steps": [
+    {
+      "at": "2026-11-04T22:25:55.065179-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-8002-40 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T22:25:55.095348-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-1 committed lease 4f0e947c for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T22:25:57.115253-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 1: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T22:25:57.12732-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 1 recorded as timeout: request timed out"
+    },
+    {
+      "at": "2026-11-04T22:25:57.151519-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease c39d6a5e for attempt 2 before sending"
+    },
+    {
+      "at": "2026-11-04T22:25:57.168289-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 2: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T22:25:57.199667-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 2 recorded as success with status 200"
+    }
+  ]
+}
