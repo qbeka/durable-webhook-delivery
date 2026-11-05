@@ -130,9 +130,11 @@ probe at a time tests the destination. A probe counts in the attempt history but
 spends none of the delivery's budget, so an outage does not push healthy
 deliveries into dead letters.
 
-A delivery therefore has two limits, and it goes dead at whichever comes first: 12
-attempts, or 72 hours. Both count from creation or the last replay. The age limit
-is what ends a delivery that only ever gets free probes.
+A delivery therefore has two limits: 12 attempts, or 72 hours. Both count from
+creation or the last replay, and both are checked when an attempt fails. A delivery
+that is only waiting never goes dead: a destination that stays down for a week loses
+nothing until an attempt fails past the limit. The age limit is what ends a delivery
+that only ever gets free probes.
 
 ### Slow requests and leases
 
