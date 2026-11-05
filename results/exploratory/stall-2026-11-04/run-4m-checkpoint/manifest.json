@@ -1,0 +1,93 @@
+{
+  "name": "diag",
+  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --name diag --rate 2000 --workers 4 --duration 4m --warmup 10s --repetitions 1 --out /private/tmp/claude-501/-Users-qendrimbeka-Coding-Projects/133204c8-f583-4a72-b86f-6fe082e657e9/scratchpad/diag/c/bench",
+  "started_at": "2026-11-04T21:25:22.636284-06:00",
+  "elapsed_seconds": 243.883835583,
+  "commit": "6d4bc0f74466a3e00ae6b9e44b7052bca920004e",
+  "working_tree": "dirty: M docs/report.md;  M results/site-stats.json;  M scripts/report.py; ?? results/final/summary.json",
+  "seed": 7000,
+  "configuration": {
+    "name": "diag",
+    "offered_events_per_second": 2000,
+    "duration_ns": 240000000000,
+    "warmup_ns": 10000000000,
+    "payload_bytes": 1024,
+    "fanout": 1,
+    "drain_deadline_ns": 120000000000,
+    "seed": 7000,
+    "options": {
+      "workers": 4,
+      "worker_concurrency": 64,
+      "worker_max_connections": 32,
+      "lease_ns": 30000000000,
+      "lease_margin_ns": 2000000000,
+      "request_timeout_ns": 10000000000,
+      "poll_interval_ns": 10000000,
+      "reap_interval_ns": 1000000000,
+      "max_attempts": 12,
+      "retry_base_ns": 1000000000,
+      "retry_cap_ns": 300000000000,
+      "breaker_threshold": 5,
+      "breaker_base_ns": 1000000000,
+      "breaker_cap_ns": 30000000000,
+      "max_in_flight": 512,
+      "receiver_max_connections": 64
+    }
+  },
+  "input_sha256": {
+    "config/postgresql.conf": "385b1237cd432bf43e093f164dbbee2d5daf6d11086777ffa30577cd15e8ba62",
+    "go.sum": "c9ec77321f398e347300b758d2bafc7c03983557f5e748c9c017c35c2301b52c",
+    "internal/receiver/schema.sql": "919b8d1894e46f1a47ad30e064c32430fa4eb40fd034aa4d4972034fc358c28e",
+    "internal/store/schema.sql": "d5ca12f71b0710a503be72b35f3bf9427b9c4006dbe5676134c4dfa039a9aa45",
+    "internal/workload/workload.go": "67b3e9b026295f68f41d3ab1d6c40c8d8a56f1c453aa1dfd0fa9e0430228cbbc"
+  },
+  "machine": {
+    "cpu": "Apple M5 Pro",
+    "efficiency_cpus": "12",
+    "logical_cpus": "18",
+    "memory_bytes": "51539607552",
+    "model": "Mac17,9",
+    "os": "26.6.2",
+    "performance_cpus": "6",
+    "storage": "internal Apple SSD, APFS"
+  },
+  "toolchain": {
+    "go": "go1.27.3",
+    "goarch": "arm64",
+    "goos": "darwin"
+  },
+  "database_settings": {
+    "autovacuum_naptime": "5s",
+    "autovacuum_vacuum_cost_limit": "2000",
+    "checkpoint_timeout": "15min",
+    "commit_delay": "0",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "max_connections": "400",
+    "max_wal_size": "8GB",
+    "server_version": "17.11 (Homebrew)",
+    "shared_buffers": "1GB",
+    "synchronous_commit": "on",
+    "wal_buffers": "64MB",
+    "wal_sync_method": "fsync_writethrough"
+  },
+  "file_sha256": {
+    "rep-1/api.log": "ee8e0630f2e2f05f9c6f16238e9f82a3cb66d1cd4e06b0cec4f4ceb9ee8e933b",
+    "rep-1/effects-healthy.latency.csv.gz": "474aa526b566145258b4dc498e31f44390ea0c723f3a4150f4b40305d1f569b9",
+    "rep-1/loadgen-healthy-7001.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "rep-1/loadgen-healthy-7001.sends.csv.gz": "115302584be1b3f26c9654b1d2463cae93d820ee0ca5554f24f1b0d2638c7dbd",
+    "rep-1/loadgen-healthy-7001.summary.json": "30ad6ae9fcaafb30e84c8583faf6900b0d1c4c26d8cc2f28d052620e62b920e6",
+    "rep-1/queue-depth.csv": "9f407ad5117a016741b2884b6064635d63a56a0bffd8c680ed6ecb5cf9b5c4b0",
+    "rep-1/receiver-healthy-dmmyfyia6g6o.log": "a2ba196ffd3f7a5cc1dadc2523f6920c03597c4b1a81b3e15ba87104e9b204fc",
+    "rep-1/result.json": "c5422d8de3f2c9e063b6656496de614ffa5878920d3a8f07a9acb0470cc4b0c7",
+    "rep-1/worker-1.log": "4a8a67cdc51dba1ca9e4bc79fc91f2db2811cb957bebbd7ff88d15be91e13b26",
+    "rep-1/worker-2.log": "1445e0a8d6ba81ef245b70058cfdba13937dba21b3baa755aefb92c0f1addc95",
+    "rep-1/worker-3.log": "bf4bd004259bb8698f2b46468b265893d1c3ee9bdf5808f7c4dbd0b61a9da34a",
+    "rep-1/worker-4.log": "26421d3613eb1dee899be9d25eddf273dea8307cd7d8b3295025c173fadae254"
+  },
+  "background_load": {
+    "busiest_at_start": "542.7 node (vitest);  12.1 npm exec vitest run;   7.8 Claude Helper;   6.5 Claude Helper (Renderer);   5.5 Terminal",
+    "load_average_at_end": "{ 7.61 8.74 7.49 }",
+    "load_average_at_start": "{ 7.98 8.01 6.76 }"
+  }
+}

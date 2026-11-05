@@ -1,0 +1,26 @@
+final/target/target-r1000-w2/rep-1:  590 s,   0 stalls, no gaps, worst 5 s p99 137 ms
+final/target/target-r1000-w2/rep-2:  590 s,   0 stalls, no gaps, worst 5 s p99 91 ms
+final/target/target-r1000-w2/rep-3:  590 s,   2 stalls, median gap 455 s, worst 5 s p99 1,143 ms
+final/target/target-r2000-w4/rep-1:  590 s,  17 stalls, median gap 30 s, worst 5 s p99 1,325 ms
+final/target/target-r2000-w4/rep-2:  590 s,  16 stalls, median gap 30 s, worst 5 s p99 1,747 ms
+final/target/target-r2000-w4/rep-3:  595 s,  15 stalls, median gap 30 s, worst 5 s p99 1,984 ms
+final/recovery/slow-limits-on/rep-1:   95 s,   1 stalls, no gaps, worst 5 s p99 777 ms
+final/recovery/slow-limits-on/rep-2:   95 s,   1 stalls, no gaps, worst 5 s p99 1,088 ms
+final/recovery/slow-limits-on/rep-3:   90 s,   3 stalls, median gap 35 s, worst 5 s p99 1,071 ms
+final/recovery/offline-limits-on/rep-1:   95 s,   2 stalls, median gap 40 s, worst 5 s p99 831 ms
+final/recovery/offline-limits-on/rep-2:   95 s,   2 stalls, median gap 60 s, worst 5 s p99 814 ms
+final/recovery/offline-limits-on/rep-3:   90 s,   2 stalls, median gap 65 s, worst 5 s p99 963 ms
+final/flush/flush-writethrough/rep-1:   55 s,   1 stalls, no gaps, worst 5 s p99 950 ms
+final/flush/flush-writethrough/rep-2:   50 s,   1 stalls, no gaps, worst 5 s p99 1,025 ms
+final/flush/flush-writethrough/rep-3:   55 s,   1 stalls, no gaps, worst 5 s p99 1,251 ms
+final/ladder/ladder-w4-r2000/rep-1:   50 s,   0 stalls, no gaps, worst 5 s p99 107 ms
+final/ladder/ladder-w4-r2000/rep-2:   50 s,   0 stalls, no gaps, worst 5 s p99 107 ms
+final/ladder/ladder-w4-r2000/rep-3:   55 s,   0 stalls, no gaps, worst 5 s p99 93 ms
+published/target/target-r1000-w2/rep-1:  590 s,   0 stalls, no gaps, worst 5 s p99 177 ms
+published/target/target-r1000-w2/rep-2:  590 s,   0 stalls, no gaps, worst 5 s p99 204 ms
+published/target/target-r1000-w2/rep-3:  590 s,   0 stalls, no gaps, worst 5 s p99 111 ms
+published/recovery/slow-limits-on/rep-1:   95 s,   0 stalls, no gaps, worst 5 s p99 72 ms
+published/recovery/slow-limits-on/rep-2:   95 s,   0 stalls, no gaps, worst 5 s p99 91 ms
+published/recovery/slow-limits-on/rep-3:   90 s,   0 stalls, no gaps, worst 5 s p99 65 ms
+exploratory/stall-2026-11-04/run-4m-checkpoint:  230 s,   0 stalls, no gaps, worst 5 s p99 212 ms
+exploratory/stall-2026-11-04/run-9m:  530 s,   1 stalls, no gaps, worst 5 s p99 258 ms

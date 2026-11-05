@@ -1,0 +1,1 @@
+diag rep 1: offered 2000/s accepted 2000/s completed 2000/s errors 0.0000% slope -0.0/s backlog 130 effect n=1060122 p50=54.8ms p95=99.3ms p99=153.2ms max=362.2ms ack p99 35.5ms drain 0.0s reconcile=true genlag p99 20us background cpu 185% contended=false
