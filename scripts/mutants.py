@@ -38,7 +38,7 @@ MUTANTS = [
      STORE, "TestStaleFinish"),
     ("a stale finish is not marked stale",
      f"{STORE}/finish.go",
-     "stale = NOT EXISTS (SELECT 1 FROM finished f WHERE f.id = r.id)", "stale = false", STORE, "TestStaleFinish"),
+     "stale = NOT EXISTS (SELECT 1 FROM finished f WHERE f.id = r.id AND f.token = r.token)", "stale = false", STORE, "TestStaleFinish"),
     ("claim ignores the in-flight limit",
      f"{STORE}/claim.go",
      "LIMIT LEAST($3::int, (SELECT free FROM room))", "LIMIT $3::int", STORE, "TestConcurrentClaims"),

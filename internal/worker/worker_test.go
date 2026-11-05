@@ -448,6 +448,11 @@ func TestWorkerDoesNotSendPastItsLeaseDeadline(t *testing.T) {
 	if requests.Load() != 0 {
 		t.Fatal("sent a request after the lease deadline")
 	}
+	// It must also stay silent. The lease is left to expire, because a report here
+	// would claim an attempt that never happened.
+	if len(engine.completions) != 0 {
+		t.Fatal("reported an attempt it never made")
+	}
 }
 
 // The request is cut short to end before the lease, even when the timeout allows more.
