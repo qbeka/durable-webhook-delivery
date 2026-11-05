@@ -1,0 +1,74 @@
+[
+  {
+    "config": "DeliveryLease.cfg",
+    "meaning": "design, all safety properties",
+    "expected_violation": null,
+    "violated": null,
+    "no_error": true,
+    "passed": true,
+    "states_generated": 47995836,
+    "distinct_states": 9484492,
+    "depth": 43,
+    "seconds": 24.7
+  },
+  {
+    "config": "liveness.cfg",
+    "meaning": "design, every delivery finishes once faults stop",
+    "expected_violation": null,
+    "violated": null,
+    "no_error": true,
+    "passed": true,
+    "states_generated": 13932,
+    "distinct_states": 4565,
+    "depth": 21,
+    "seconds": 2.3
+  },
+  {
+    "config": "control-no-dedupe.cfg",
+    "meaning": "receiver does not check the key",
+    "expected_violation": "NoRepeatedEffect",
+    "violated": "NoRepeatedEffect",
+    "no_error": false,
+    "passed": true,
+    "states_generated": 729,
+    "distinct_states": 375,
+    "depth": 10,
+    "seconds": 1.6
+  },
+  {
+    "config": "control-not-atomic.cfg",
+    "meaning": "key and effect commit separately",
+    "expected_violation": "SucceededHasEffect",
+    "violated": "SucceededHasEffect",
+    "no_error": false,
+    "passed": true,
+    "states_generated": 5915,
+    "distinct_states": 2442,
+    "depth": 15,
+    "seconds": 1.8
+  },
+  {
+    "config": "control-answer-first.cfg",
+    "meaning": "receiver answers before it commits",
+    "expected_violation": "SucceededHasEffect",
+    "violated": "SucceededHasEffect",
+    "no_error": false,
+    "passed": true,
+    "states_generated": 460,
+    "distinct_states": 251,
+    "depth": 8,
+    "seconds": 1.4
+  },
+  {
+    "config": "control-no-token.cfg",
+    "meaning": "no report checks the lease token",
+    "expected_violation": "SuccessIsStable",
+    "violated": "SuccessIsStable",
+    "no_error": false,
+    "passed": true,
+    "states_generated": 2102,
+    "distinct_states": 894,
+    "depth": 16,
+    "seconds": 1.6
+  }
+]

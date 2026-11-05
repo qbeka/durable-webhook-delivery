@@ -1,0 +1,98 @@
+{
+  "scenario": "failover-async/rep-3",
+  "fault": "primary killed under load, with the standby's WAL receiver frozen for 1 second",
+  "options": {
+    "workers": 2,
+    "worker_concurrency": 32,
+    "worker_max_connections": 16,
+    "lease_ns": 3000000000,
+    "lease_margin_ns": 500000000,
+    "request_timeout_ns": 1000000000,
+    "poll_interval_ns": 10000000,
+    "reap_interval_ns": 500000000,
+    "max_attempts": 60,
+    "retry_base_ns": 100000000,
+    "retry_cap_ns": 2000000000,
+    "breaker_threshold": 8,
+    "breaker_base_ns": 200000000,
+    "breaker_cap_ns": 2000000000,
+    "max_in_flight": 64,
+    "receiver_max_connections": 64,
+    "engine_database_url": "postgres://hook@127.0.0.1:54340,127.0.0.1:54341/hookd?target_session_attrs=read-write"
+  },
+  "declared_faults": {
+    "primary_crashes": 1
+  },
+  "delivered_faults": {
+    "primary_crashes": 1
+  },
+  "load": [
+    {
+      "stream": {
+        "tenant_id": "healthy",
+        "source_id": "mail",
+        "seed": 8503,
+        "event_count": 20000,
+        "rate_per_second": 500,
+        "payload_bytes": 1024,
+        "start_unix_ns": 1793847624444509000
+      },
+      "duplicate_sends": 0,
+      "offered_sends": 20000,
+      "accepted": 20000,
+      "duplicates": 0,
+      "conflicts": 0,
+      "rejected": 0,
+      "timed_out": 0,
+      "retried_requests": 2689,
+      "elapsed_seconds": 40.019621,
+      "send_lag_p50_us": 0.541,
+      "send_lag_p99_us": 635.196,
+      "send_lag_max_us": 282890.786
+    }
+  ],
+  "drain_deadline_seconds": 120,
+  "drain_seconds": 0.004266667,
+  "drained": true,
+  "reconcile": {
+    "expected_events": 20000,
+    "expected_effects": 20000,
+    "optional_events": 0,
+    "stored_events": 19727,
+    "ledger_rows": 19992,
+    "distinct_effects": 19992,
+    "attempts_total": 19739,
+    "stale_attempts": 0,
+    "expired_leases": 10,
+    "failed_attempts": 12,
+    "recorded_conflicts": 0,
+    "missing_events": 273,
+    "unexpected_events": 0,
+    "digest_mismatches": 0,
+    "missing_effects": 8,
+    "repeated_effects": 0,
+    "unexpected_effects": 0,
+    "field_mismatches": 0,
+    "dead_letters": 0,
+    "unfinished_jobs": 0,
+    "pass": false
+  },
+  "latency_ms": {
+    "healthy": {
+      "count": 19992,
+      "p50_ms": 42.540839,
+      "p95_ms": 915.877709,
+      "p99_ms": 2773.478568,
+      "max_ms": 4083.167135
+    }
+  },
+  "receiver_outcomes": {
+    "healthy": {
+      "applied": 19992,
+      "duplicate": 20
+    }
+  },
+  "verdict": "control_detected",
+  "verdict_reason": "the harness detected 273 lost acknowledged events",
+  "elapsed_seconds": 41.786265042
+}

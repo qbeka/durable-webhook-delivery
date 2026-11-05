@@ -1,0 +1,8 @@
+failover-sync rep 1: pass lost acknowledged 0 repeated 0 missing effects 0 dead 0 unfinished 0 unavailable 3.26s effect p99 3597.0ms
+failover-sync rep 2: pass lost acknowledged 0 repeated 0 missing effects 0 dead 0 unfinished 0 unavailable 3.28s effect p99 3550.4ms
+failover-sync rep 3: pass lost acknowledged 0 repeated 0 missing effects 0 dead 0 unfinished 0 unavailable 3.29s effect p99 3372.2ms
+failover-sync rep 4: pass lost acknowledged 0 repeated 0 missing effects 0 dead 0 unfinished 0 unavailable 3.27s effect p99 3697.8ms
+failover-sync rep 5: pass lost acknowledged 0 repeated 0 missing effects 0 dead 0 unfinished 0 unavailable 3.28s effect p99 3497.5ms
+failover-async rep 1: control_detected lost acknowledged 210 repeated 0 missing effects 7 dead 0 unfinished 0 unavailable 2.27s effect p99 2741.0ms
+failover-async rep 2: control_detected lost acknowledged 196 repeated 0 missing effects 6 dead 0 unfinished 0 unavailable 2.28s effect p99 2951.3ms
+failover-async rep 3: control_detected lost acknowledged 273 repeated 0 missing effects 8 dead 0 unfinished 0 unavailable 2.28s effect p99 2773.5ms

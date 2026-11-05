@@ -1,0 +1,47 @@
+[
+  {
+    "rate_per_second": 1000,
+    "events": 20000,
+    "accepted": 20000,
+    "send_lag_p50_us": 0.52,
+    "send_lag_p99_us": 2.673,
+    "send_lag_max_us": 1157.413,
+    "achieved_rate_per_second": 991.7814050309302
+  },
+  {
+    "rate_per_second": 2000,
+    "events": 40000,
+    "accepted": 40000,
+    "send_lag_p50_us": 0.507,
+    "send_lag_p99_us": 2.538,
+    "send_lag_max_us": 1996.997,
+    "achieved_rate_per_second": 1991.5999293977827
+  },
+  {
+    "rate_per_second": 4000,
+    "events": 80000,
+    "accepted": 80000,
+    "send_lag_p50_us": 0.511,
+    "send_lag_p99_us": 5.583,
+    "send_lag_max_us": 2494.209,
+    "achieved_rate_per_second": 3983.2488453059505
+  },
+  {
+    "rate_per_second": 8000,
+    "events": 160000,
+    "accepted": 160000,
+    "send_lag_p50_us": 0.524,
+    "send_lag_p99_us": 10.129,
+    "send_lag_max_us": 1048.022,
+    "achieved_rate_per_second": 7997.555147391442
+  },
+  {
+    "rate_per_second": 16000,
+    "events": 320000,
+    "accepted": 320000,
+    "send_lag_p50_us": 0.53,
+    "send_lag_p99_us": 10.476,
+    "send_lag_max_us": 1504.875,
+    "achieved_rate_per_second": 15996.53355117946
+  }
+]

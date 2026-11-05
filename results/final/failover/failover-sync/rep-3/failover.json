@@ -1,0 +1,129 @@
+{
+  "config": {
+    "mode": "sync",
+    "events_per_second": 500,
+    "crash_at_ns": 15000000000,
+    "duration_ns": 40000000000,
+    "standby_freeze_ns": 1000000000,
+    "declared_detection_ns": 2000000000,
+    "seed": 8500
+  },
+  "repetition": 3,
+  "verdict": "pass",
+  "unavailable_seconds": 3.289814,
+  "replication": {
+    "synchronous_standby_names": "*",
+    "sync_state": "sync",
+    "state": "streaming",
+    "wal_sync_method": "fsync_writethrough",
+    "synchronous_commit": "on"
+  },
+  "machine": {
+    "background_cpu_percent": 286.8,
+    "waited_seconds": 0.016673542,
+    "background_cpu_during_median_percent": 119.59999999999998,
+    "background_cpu_during_max_percent": 235.69999999999996,
+    "background_cpu_during_samples": 27,
+    "contended": false
+  },
+  "scenario": {
+    "scenario": "failover-sync/rep-3",
+    "fault": "primary killed under load, with the standby's WAL receiver frozen for 1 second",
+    "options": {
+      "workers": 2,
+      "worker_concurrency": 32,
+      "worker_max_connections": 16,
+      "lease_ns": 3000000000,
+      "lease_margin_ns": 500000000,
+      "request_timeout_ns": 1000000000,
+      "poll_interval_ns": 10000000,
+      "reap_interval_ns": 500000000,
+      "max_attempts": 60,
+      "retry_base_ns": 100000000,
+      "retry_cap_ns": 2000000000,
+      "breaker_threshold": 8,
+      "breaker_base_ns": 200000000,
+      "breaker_cap_ns": 2000000000,
+      "max_in_flight": 64,
+      "receiver_max_connections": 64,
+      "engine_database_url": "postgres://hook@127.0.0.1:54340,127.0.0.1:54341/hookd?target_session_attrs=read-write"
+    },
+    "declared_faults": {
+      "primary_crashes": 1,
+      "synchronous_standbys": 1
+    },
+    "delivered_faults": {
+      "primary_crashes": 1,
+      "synchronous_standbys": 1
+    },
+    "load": [
+      {
+        "stream": {
+          "tenant_id": "healthy",
+          "source_id": "mail",
+          "seed": 8503,
+          "event_count": 20000,
+          "rate_per_second": 500,
+          "payload_bytes": 1024,
+          "start_unix_ns": 1793846928764074000
+        },
+        "duplicate_sends": 0,
+        "offered_sends": 20000,
+        "accepted": 19936,
+        "duplicates": 64,
+        "conflicts": 0,
+        "rejected": 0,
+        "timed_out": 0,
+        "retried_requests": 2813,
+        "elapsed_seconds": 40.014263,
+        "send_lag_p50_us": 0.558,
+        "send_lag_p99_us": 913097.891,
+        "send_lag_max_us": 1290947.603
+      }
+    ],
+    "drain_deadline_seconds": 120,
+    "drain_seconds": 0.005670375,
+    "drained": true,
+    "reconcile": {
+      "expected_events": 20000,
+      "expected_effects": 20000,
+      "optional_events": 0,
+      "stored_events": 20000,
+      "ledger_rows": 20000,
+      "distinct_effects": 20000,
+      "attempts_total": 20023,
+      "stale_attempts": 0,
+      "expired_leases": 23,
+      "failed_attempts": 23,
+      "recorded_conflicts": 0,
+      "missing_events": 0,
+      "unexpected_events": 0,
+      "digest_mismatches": 0,
+      "missing_effects": 0,
+      "repeated_effects": 0,
+      "unexpected_effects": 0,
+      "field_mismatches": 0,
+      "dead_letters": 0,
+      "unfinished_jobs": 0,
+      "pass": true
+    },
+    "latency_ms": {
+      "healthy": {
+        "count": 20000,
+        "p50_ms": 64.13949,
+        "p95_ms": 2107.059471,
+        "p99_ms": 3372.223341,
+        "max_ms": 5190.638145
+      }
+    },
+    "receiver_outcomes": {
+      "healthy": {
+        "applied": 20000,
+        "duplicate": 13
+      }
+    },
+    "verdict": "pass",
+    "verdict_reason": "every expected effect exists exactly once",
+    "elapsed_seconds": 41.785672833
+  }
+}

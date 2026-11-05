@@ -1,0 +1,6 @@
+ok      DeliveryLease.cfg            design, all safety properties: no error, 9484492 distinct states
+ok      liveness.cfg                 design, every delivery finishes once faults stop: no error, 4565 distinct states
+ok      control-no-dedupe.cfg        receiver does not check the key: NoRepeatedEffect, 375 distinct states
+ok      control-not-atomic.cfg       key and effect commit separately: SucceededHasEffect, 2442 distinct states
+ok      control-answer-first.cfg     receiver answers before it commits: SucceededHasEffect, 251 distinct states
+ok      control-no-token.cfg         no report checks the lease token: SuccessIsStable, 894 distinct states

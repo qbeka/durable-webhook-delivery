@@ -1,0 +1,130 @@
+{
+  "scenario": "offline-limits-on/rep-1",
+  "fault": "destination offline for 1m0s",
+  "options": {
+    "workers": 2,
+    "worker_concurrency": 64,
+    "worker_max_connections": 16,
+    "lease_ns": 10000000000,
+    "lease_margin_ns": 1000000000,
+    "request_timeout_ns": 2000000000,
+    "poll_interval_ns": 10000000,
+    "reap_interval_ns": 1000000000,
+    "max_attempts": 200,
+    "retry_base_ns": 200000000,
+    "retry_cap_ns": 5000000000,
+    "breaker_threshold": 5,
+    "breaker_base_ns": 500000000,
+    "breaker_cap_ns": 5000000000,
+    "max_in_flight": 64,
+    "receiver_max_connections": 64
+  },
+  "declared_faults": {
+    "outages": 1
+  },
+  "delivered_faults": {
+    "outages": 1
+  },
+  "load": [
+    {
+      "stream": {
+        "tenant_id": "healthy",
+        "source_id": "mail",
+        "seed": 8001,
+        "event_count": 30000,
+        "rate_per_second": 300,
+        "payload_bytes": 1024,
+        "start_unix_ns": 1793845859829317000
+      },
+      "duplicate_sends": 0,
+      "offered_sends": 30000,
+      "accepted": 30000,
+      "duplicates": 0,
+      "conflicts": 0,
+      "rejected": 0,
+      "timed_out": 0,
+      "retried_requests": 0,
+      "elapsed_seconds": 101.089352,
+      "send_lag_p50_us": 0.566,
+      "send_lag_p99_us": 558.589,
+      "send_lag_max_us": 1504.165
+    },
+    {
+      "stream": {
+        "tenant_id": "flaky",
+        "source_id": "mail",
+        "seed": 8002,
+        "event_count": 30000,
+        "rate_per_second": 300,
+        "payload_bytes": 1024,
+        "start_unix_ns": 1793845859829317000
+      },
+      "duplicate_sends": 0,
+      "offered_sends": 30000,
+      "accepted": 30000,
+      "duplicates": 0,
+      "conflicts": 0,
+      "rejected": 0,
+      "timed_out": 0,
+      "retried_requests": 0,
+      "elapsed_seconds": 101.144951,
+      "send_lag_p50_us": 0.565,
+      "send_lag_p99_us": 568.012,
+      "send_lag_max_us": 1523.04
+    }
+  ],
+  "drain_deadline_seconds": 300,
+  "drain_seconds": 0.575123667,
+  "drained": true,
+  "reconcile": {
+    "expected_events": 60000,
+    "expected_effects": 60000,
+    "optional_events": 0,
+    "stored_events": 60000,
+    "ledger_rows": 60000,
+    "distinct_effects": 60000,
+    "attempts_total": 60020,
+    "stale_attempts": 0,
+    "expired_leases": 0,
+    "failed_attempts": 20,
+    "recorded_conflicts": 0,
+    "missing_events": 0,
+    "unexpected_events": 0,
+    "digest_mismatches": 0,
+    "missing_effects": 0,
+    "repeated_effects": 0,
+    "unexpected_effects": 0,
+    "field_mismatches": 0,
+    "dead_letters": 0,
+    "unfinished_jobs": 0,
+    "pass": true
+  },
+  "latency_ms": {
+    "flaky": {
+      "count": 29991,
+      "p50_ms": 22897.823487,
+      "p95_ms": 56677.886127,
+      "p99_ms": 59655.809476,
+      "max_ms": 74280.399241
+    },
+    "healthy": {
+      "count": 30000,
+      "p50_ms": 40.031411,
+      "p95_ms": 62.071699,
+      "p99_ms": 686.491065,
+      "max_ms": 1042.115727
+    }
+  },
+  "receiver_outcomes": {
+    "flaky": {
+      "applied": 29991,
+      "duplicate": 4
+    },
+    "healthy": {
+      "applied": 30000
+    }
+  },
+  "verdict": "pass",
+  "verdict_reason": "every expected effect exists exactly once",
+  "elapsed_seconds": 103.978850625
+}

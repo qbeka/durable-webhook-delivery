@@ -1,0 +1,62 @@
+{
+  "scenario": "failover-async/rep-2",
+  "delivery": {
+    "delivery_key": "dk_6d912073b2dc6aa061e89addb864534a",
+    "state": "succeeded",
+    "attempt_count": 1,
+    "destination": "ledger",
+    "tenant_id": "healthy",
+    "source_id": "mail",
+    "event_id": "evt-8502-7799",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "3a853d6d485e97a71c734c207d2aebe83080911dc94840d31037fa776ec29ca5",
+    "received_at": "2026-11-04T20:58:21.083614-06:00",
+    "finished_at": "2026-11-04T20:58:23.979586-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "1958e753-0919-4d33-bdf0-0cbe73cfc9e0",
+        "worker_id": "worker-2",
+        "claimed_at": "2026-11-04T20:58:23.96579-06:00",
+        "finished_at": "2026-11-04T20:58:23.979673-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 19197,
+  "steps": [
+    {
+      "at": "2026-11-04T20:58:21.083614-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-8502-7799 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T20:58:21.119813-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 1: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T20:58:23.96579-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-2 committed lease 1958e753 for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T20:58:23.974714-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 1: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T20:58:23.979673-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 1 recorded as success with status 200"
+    }
+  ]
+}

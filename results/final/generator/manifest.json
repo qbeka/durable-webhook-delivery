@@ -1,0 +1,78 @@
+{
+  "name": "generator",
+  "command": "./bin/harness generator --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/generator --rates 1000,2000,4000,8000,16000",
+  "started_at": "2026-11-04T18:10:38.341565-06:00",
+  "elapsed_seconds": 107.332169625,
+  "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",
+  "working_tree": "clean",
+  "seed": 9000,
+  "configuration": {
+    "duration": "20s",
+    "rates": "1000,2000,4000,8000,16000"
+  },
+  "input_sha256": {
+    "config/postgresql.conf": "385b1237cd432bf43e093f164dbbee2d5daf6d11086777ffa30577cd15e8ba62",
+    "go.sum": "c9ec77321f398e347300b758d2bafc7c03983557f5e748c9c017c35c2301b52c",
+    "internal/receiver/schema.sql": "919b8d1894e46f1a47ad30e064c32430fa4eb40fd034aa4d4972034fc358c28e",
+    "internal/store/schema.sql": "d5ca12f71b0710a503be72b35f3bf9427b9c4006dbe5676134c4dfa039a9aa45",
+    "internal/workload/workload.go": "67b3e9b026295f68f41d3ab1d6c40c8d8a56f1c453aa1dfd0fa9e0430228cbbc"
+  },
+  "machine": {
+    "cpu": "Apple M5 Pro",
+    "efficiency_cpus": "12",
+    "logical_cpus": "18",
+    "memory_bytes": "51539607552",
+    "model": "Mac17,9",
+    "os": "26.6.2",
+    "performance_cpus": "6",
+    "storage": "internal Apple SSD, APFS"
+  },
+  "toolchain": {
+    "go": "go1.27.3",
+    "goarch": "arm64",
+    "goos": "darwin"
+  },
+  "database_settings": {
+    "autovacuum_naptime": "5s",
+    "autovacuum_vacuum_cost_limit": "2000",
+    "checkpoint_timeout": "15min",
+    "commit_delay": "0",
+    "fsync": "on",
+    "full_page_writes": "on",
+    "max_connections": "400",
+    "max_wal_size": "8GB",
+    "server_version": "17.11 (Homebrew)",
+    "shared_buffers": "1GB",
+    "synchronous_commit": "on",
+    "wal_buffers": "64MB",
+    "wal_sync_method": "fsync_writethrough"
+  },
+  "file_sha256": {
+    "generator.json": "5a5c285eb7c437d023c75db60c7d9f6b317b1de75fd262e9d3c0b571fab65d96",
+    "r1000/loadgen-healthy-9000.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r1000/loadgen-healthy-9000.sends.csv.gz": "58e8ea4a1c2f9bd43bad0db198d2ad52dd03fbda947611f8f85aa1a69cc37077",
+    "r1000/loadgen-healthy-9000.summary.json": "0647a6e5f9e7c2208e1c62d8c0e5cf1e39e219a03ec4b6f57e7bce8c8f5dc5ac",
+    "r1000/null-sink.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r16000/loadgen-healthy-9000.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r16000/loadgen-healthy-9000.sends.csv.gz": "216e9e1a1a52bcd224cce6bca40c304ac31381c263bc8b5a7183555e765a07ed",
+    "r16000/loadgen-healthy-9000.summary.json": "a12915896a4251f068a6899e6b3233e26b0f67d494f02575d9b1fe9e1b7ed00d",
+    "r16000/null-sink.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r2000/loadgen-healthy-9000.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r2000/loadgen-healthy-9000.sends.csv.gz": "ecaad97d92326f06aa88db2e5bba66f4b4ddf9c4ee4a2b36b69b1465342e0de0",
+    "r2000/loadgen-healthy-9000.summary.json": "d3a63558c16a82bebacbb3e62d63b18c3a0e25717f7d983b85faae51f04ac572",
+    "r2000/null-sink.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r4000/loadgen-healthy-9000.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r4000/loadgen-healthy-9000.sends.csv.gz": "30a61cf3a79754da6477a414e1b9b0227d5abfd9652ad85d11c56b3441a669b6",
+    "r4000/loadgen-healthy-9000.summary.json": "49c7aab76d35c714144900c77c2a243a62abee3e0f10a3e9a74c7cf5337b78c0",
+    "r4000/null-sink.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r8000/loadgen-healthy-9000.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "r8000/loadgen-healthy-9000.sends.csv.gz": "40ef583f7995b18b20542dd3cde38be44c857148e00cf5cc8631e24481bb6657",
+    "r8000/loadgen-healthy-9000.summary.json": "22f78d9265286984214e86f6c6e09eca0e15e58c85cf1407b902c7c59469389b",
+    "r8000/null-sink.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "background_load": {
+    "busiest_at_start": "47.4 XprotectService;  43.1 WindowServer;  18.5 com.apple.Virtualization.VirtualMachine;  14.4 Terminal;   9.3 syspolicyd",
+    "load_average_at_end": "{ 6.24 7.91 8.67 }",
+    "load_average_at_start": "{ 4.62 8.35 8.90 }"
+  }
+}

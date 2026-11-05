@@ -1,0 +1,124 @@
+{
+  "scenario": "control_idempotent",
+  "delivery": {
+    "delivery_key": "dk_cb0c05fcb54843c5120a1b51628d4887",
+    "state": "succeeded",
+    "attempt_count": 3,
+    "destination": "ledger",
+    "tenant_id": "healthy",
+    "source_id": "mail",
+    "event_id": "evt-2026-1",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "61885e673d4c9c5ad91392d4e168a43304d7445acd526f51f9fa5239776b1975",
+    "received_at": "2026-11-04T18:13:58.176273-06:00",
+    "finished_at": "2026-11-04T18:14:46.831091-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "85cf966b-a9cf-40fc-921a-cf3d75312aff",
+        "worker_id": "worker-3",
+        "claimed_at": "2026-11-04T18:13:58.186456-06:00",
+        "finished_at": "2026-11-04T18:13:58.222365-06:00",
+        "outcome": "connection_error",
+        "error": "EOF",
+        "stale": false
+      },
+      {
+        "attempt_number": 2,
+        "lease_token": "5d738f65-7509-4e00-85bd-d019ee8acc11",
+        "worker_id": "worker-1",
+        "claimed_at": "2026-11-04T18:13:58.239824-06:00",
+        "finished_at": "2026-11-04T18:13:58.258098-06:00",
+        "outcome": "connection_error",
+        "error": "EOF",
+        "stale": false
+      },
+      {
+        "attempt_number": 3,
+        "lease_token": "f85ea689-f8a6-407e-95e1-f7b9dd1476ed",
+        "worker_id": "worker-3",
+        "claimed_at": "2026-11-04T18:14:46.806671-06:00",
+        "finished_at": "2026-11-04T18:14:46.83131-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 78439,
+  "steps": [
+    {
+      "at": "2026-11-04T18:13:58.176273-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-2026-1 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T18:13:58.186456-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-3 committed lease 85cf966b for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T18:13:58.210174-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 1: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T18:13:58.210179-06:00",
+      "actor": "receiver",
+      "action": "request_refused",
+      "detail": "attempt 1: dropped_response"
+    },
+    {
+      "at": "2026-11-04T18:13:58.222365-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 1 recorded as connection_error: EOF"
+    },
+    {
+      "at": "2026-11-04T18:13:58.239824-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-1 committed lease 5d738f65 for attempt 2 before sending"
+    },
+    {
+      "at": "2026-11-04T18:13:58.249227-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 2: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T18:13:58.249231-06:00",
+      "actor": "receiver",
+      "action": "request_refused",
+      "detail": "attempt 2: dropped_response"
+    },
+    {
+      "at": "2026-11-04T18:13:58.258098-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 2 recorded as connection_error: EOF"
+    },
+    {
+      "at": "2026-11-04T18:14:46.806671-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-3 committed lease f85ea689 for attempt 3 before sending"
+    },
+    {
+      "at": "2026-11-04T18:14:46.818575-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 3: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T18:14:46.83131-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 3 recorded as success with status 200"
+    }
+  ]
+}

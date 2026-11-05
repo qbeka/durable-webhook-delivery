@@ -1,0 +1,84 @@
+{
+  "scenario": "kill_before_send",
+  "delivery": {
+    "delivery_key": "dk_819796de1ac2900d346fc508b3a573ba",
+    "state": "succeeded",
+    "attempt_count": 2,
+    "destination": "ledger",
+    "tenant_id": "healthy",
+    "source_id": "mail",
+    "event_id": "evt-2026-195",
+    "event_type": "receipt.forwarded",
+    "payload_sha256": "b2b7af422babd987b4256e2b2bbb369a5812ab8f3f98c94f53be012e1ffc4eed",
+    "received_at": "2026-11-04T18:14:55.267176-06:00",
+    "finished_at": "2026-11-04T18:15:01.756824-06:00",
+    "attempts": [
+      {
+        "attempt_number": 1,
+        "lease_token": "c940b0a5-27a3-4f60-9064-eb53098bc647",
+        "worker_id": "worker-7",
+        "claimed_at": "2026-11-04T18:14:55.276745-06:00",
+        "finished_at": "2026-11-04T18:14:58.383201-06:00",
+        "outcome": "lease_expired",
+        "stale": false,
+        "lease_expired_at": "2026-11-04T18:14:58.383201-06:00"
+      },
+      {
+        "attempt_number": 2,
+        "lease_token": "9598d356-2815-49f8-8397-a2973046cdfa",
+        "worker_id": "worker-18",
+        "claimed_at": "2026-11-04T18:15:01.74276-06:00",
+        "finished_at": "2026-11-04T18:15:01.757188-06:00",
+        "outcome": "success",
+        "http_status": 200,
+        "stale": false
+      }
+    ]
+  },
+  "ledger_rows": 1,
+  "ledger_amount_cents": 26008,
+  "steps": [
+    {
+      "at": "2026-11-04T18:14:55.267176-06:00",
+      "actor": "engine",
+      "action": "event_committed",
+      "detail": "event evt-2026-195 and its delivery committed, then ingress answered 202"
+    },
+    {
+      "at": "2026-11-04T18:14:55.276745-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-7 committed lease c940b0a5 for attempt 1 before sending"
+    },
+    {
+      "at": "2026-11-04T18:14:55.293824-06:00",
+      "actor": "receiver",
+      "action": "effect_committed",
+      "detail": "attempt 1: key and expense committed together"
+    },
+    {
+      "at": "2026-11-04T18:14:58.383201-06:00",
+      "actor": "engine",
+      "action": "lease_expired",
+      "detail": "lease c940b0a5 expired with no report from worker-7"
+    },
+    {
+      "at": "2026-11-04T18:15:01.74276-06:00",
+      "actor": "worker",
+      "action": "claim_committed",
+      "detail": "worker-18 committed lease 9598d356 for attempt 2 before sending"
+    },
+    {
+      "at": "2026-11-04T18:15:01.754096-06:00",
+      "actor": "receiver",
+      "action": "duplicate_detected",
+      "detail": "attempt 2: key already present, no new effect"
+    },
+    {
+      "at": "2026-11-04T18:15:01.757188-06:00",
+      "actor": "worker",
+      "action": "attempt_recorded",
+      "detail": "attempt 2 recorded as success with status 200"
+    }
+  ]
+}

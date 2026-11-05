@@ -1,0 +1,41 @@
+caught     ingress does not lock the source
+caught     a conflicting body counts as a duplicate
+caught     a duplicate event is reported as accepted
+caught     finish ignores the lease token
+caught     a stale finish is not marked stale
+caught     claim ignores the in-flight limit
+caught     claim does not lock the destination
+caught     an open breaker does not limit claims to one probe
+caught     a probe spends an attempt
+caught     the rate limit is ignored
+caught     claims always go to one destination
+caught     an expired lease never goes dead
+caught     an expired lease ignores the age limit
+caught     a retried finish relabels an applied attempt
+caught     pruned payloads use up the replay limit
+caught     replay changes the delivery key
+caught     replay touches work in progress
+caught     prune removes unfinished work
+caught     the receiver applies every request
+caught     the delivery key is not checked for a different body
+caught     the receiver skips signature verification
+caught     the worker follows redirects
+caught     the age limit is ignored
+caught     a stored event may have no effect
+caught     a merchant mismatch goes unnoticed
+caught     a run passes with rejected events
+caught     a clean exit counts as a crash
+caught     the delivery signature leaves out the tenant
+caught     lease expiry overwrites the attempt outcome
+caught     the signature leaves out the event ID
+caught     a worker sends past its lease deadline
+caught     a request can outlive its lease
+caught     the breaker period does not grow
+caught     concurrent failures use a stale count
+caught     a stale report in a batch is not marked stale
+caught     a stale report feeds the breaker
+caught     Retry-After is dropped when the count holds
+caught     a database failure gives no Retry-After
+caught     metrics are not unique per destination
+
+39 of 39 mutants caught
