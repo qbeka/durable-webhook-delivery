@@ -107,6 +107,81 @@ func TestIngressStatusCodes(t *testing.T) {
 	}
 }
 
+func TestDatabaseFailureAsksTheSenderToRetry(t *testing.T) {
+	ctx := context.Background()
+	database, err := store.Open(ctx, testdb.Engine(t), 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	database.Close() // every query now fails
+	handler := &Handler{Store: database, Now: time.Now}
+	server := httptest.NewServer(handler.Routes())
+	defer server.Close()
+
+	request := goodRequest()
+	httpRequest, err := http.NewRequest(http.MethodPost, server.URL+"/v1/sources/source/events", bytes.NewReader(request.body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	httpRequest.Header.Set("Hook-Tenant", "tenant")
+	httpRequest.Header.Set("Hook-Event-Id", "evt")
+	httpRequest.Header.Set("Hook-Event-Type", "type")
+	httpRequest.Header.Set("Hook-Timestamp", strconv.FormatInt(time.Now().Unix(), 10))
+	response, err := http.DefaultClient.Do(httpRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusServiceUnavailable || response.Header.Get("Retry-After") == "" {
+		t.Fatalf("got %d, Retry-After %q", response.StatusCode, response.Header.Get("Retry-After"))
+	}
+}
+
+func TestMetricsAreUniquePerDestinationAndEscaped(t *testing.T) {
+	ctx := context.Background()
+	database, err := store.Open(ctx, testdb.Engine(t), 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	if err := database.Migrate(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for _, tenant := range []string{"one", "two"} {
+		if _, err := database.PutDestination(ctx, store.Destination{
+			TenantID: tenant, Name: "tab\tname", URL: "http://x/", Secret: "s", MaxInFlight: 1,
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler := &Handler{Store: database, Now: time.Now}
+	server := httptest.NewServer(handler.Routes())
+	defer server.Close()
+	response, err := http.Get(server.URL + "/metrics")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]bool{}
+	for _, line := range strings.Split(string(body), "\n") {
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		series := line[:strings.LastIndex(line, " ")]
+		if seen[series] {
+			t.Fatalf("duplicate series: %s", series)
+		}
+		seen[series] = true
+		if strings.Contains(line, `\t`) {
+			t.Fatalf("Prometheus allows only three escapes: %s", line)
+		}
+	}
+}
+
 func TestMetricsReportDeliveriesInPrometheusFormat(t *testing.T) {
 	server := startIngress(t)
 	response, err := http.Get(server.URL + "/metrics")
