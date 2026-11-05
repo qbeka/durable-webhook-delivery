@@ -125,3 +125,31 @@ Measured with no service behind it, so the service numbers above cannot be its l
 | 4,000 | 3,983 | 6 |
 | 8,000 | 7,998 | 10 |
 | 16,000 | 15,997 | 10 |
+
+## The retest
+
+One attempt at the two tests that failed above, from unchanged service code. The final run's failures stay on the record.
+
+### H1b again
+
+| Configuration | Rep | Accepted per second | Completed per second | p50 ms | p95 ms | p99 ms | Max ms | Backlog slope | Error rate | Reconciled | Effects counted | Contended |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|---:|---|
+| target-r2000-w4 | 1 | 2,000.3 | 2,000.4 | 67.2 | 181.4 | 378.5 | 682.1 | 0.09 | 0.0000 | yes | 1,180,122 | no |
+| target-r2000-w4 | 2 | 1,999.5 | 1,999.5 | 61.4 | 2560.3 | 3881.2 | 4183.2 | -0.51 | 0.0000 | yes | 1,179,640 | no |
+| target-r2000-w4 | 3 | 1,999.0 | 1,999.1 | 56.7 | 161.0 | 586.1 | 1356.6 | 0.16 | 0.0000 | yes | 1,179,437 | no |
+
+target-r2000-w4: not supported.
+
+### H4 again
+
+| Configuration | Healthy p99 before, ms | Healthy p99 during, ms | Healthy p99 after, ms | Peak backlog | Seconds to catch up | Verdicts | Contended |
+|---|---:|---:|---:|---:|---:|---|---|
+| offline-limits-on | 60.9 (55.4 to 69.1) | 58.8 (56.2 to 68.1) | 64.2 (59.6 to 84.6) | 18,471 (17,871 to 19,221) | 22.1 (19.5 to 27.5) | pass, pass, pass | 0 of 3, background CPU 140% |
+| slow-limits-off | 57.0 (55.3 to 59.3) | 36,316.7 (34,899.2 to 36,945.0) | 7,241.9 (7,132.6 to 7,608.6) | 17,963 (17,909 to 18,456) | 14.5 (13.5 to 14.5) | pass, pass, pass | 0 of 3, background CPU 140% |
+| slow-limits-on | 55.8 (54.2 to 62.4) | 60.6 (57.9 to 66.6) | 67.5 (60.7 to 73.7) | 18,900 (18,840 to 19,352) | 24.6 (23.2 to 25.5) | pass, pass, pass | 0 of 3, background CPU 220% |
+
+Decision: supported. Healthy p99 under 250 ms in every repetition with a slow destination: yes. With an offline destination: yes. Above it in every repetition with limits off: yes.
+
+### Drive flush probe
+
+10,983 samples of a small write and full flush during the retest: p50 7.9 ms, p99 15.5 ms, max 134.4 ms.

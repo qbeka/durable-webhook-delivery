@@ -53,5 +53,21 @@
   "sync_replication_p99_ms": 210.527572,
   "model_states": 9484492,
   "model_controls": 4,
-  "mutants": "39 of 39 mutants caught"
+  "mutants": "39 of 39 mutants caught",
+  "retest": {
+    "long_run_passed": false,
+    "long_run_p99_low": 378.471589,
+    "long_run_p99_high": 3881.162439,
+    "long_run_effects": 3600000,
+    "isolation_passed": true,
+    "limits_on_low": 57.86164,
+    "limits_on_high": 66.553071,
+    "limits_on_median": 60.586768,
+    "offline_low": 56.24113,
+    "offline_high": 68.058957,
+    "limits_off_low": 34899.157218,
+    "limits_off_high": 36944.951419,
+    "limits_off_median": 36316.704161,
+    "seconds_to_catch_up": 24.564799
+  }
 }
