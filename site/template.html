@@ -247,8 +247,8 @@ body {
 .plot path { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .plot .past { opacity: .24; }
 .plot .now { clip-path: inset(-2px calc((1 - var(--at)) * 100%) -2px -2px); }
-.plot h3 { position: absolute; top: 0; left: 0; margin: 0; font: 400 12px/16px var(--sans); color: var(--muted); }
-.plot h3 i { display: inline-block; width: 12px; height: 2px; margin: 0 5px 0 10px; vertical-align: middle; }
+.plot .name { position: absolute; top: 0; left: 0; margin: 0; font: 400 12px/16px var(--sans); color: var(--muted); }
+.plot .name i { display: inline-block; width: 12px; height: 2px; margin: 0 5px 0 10px; vertical-align: middle; }
 .plot .scale { position: absolute; top: 0; right: 0; font-size: 12px; line-height: 16px; color: var(--muted); }
 .axis { position: relative; font-size: 12px; line-height: 18px; color: var(--muted); }
 .axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
@@ -326,7 +326,7 @@ body {
   #meter .tally { width: 64px; }
   #meter .facts { display: block; margin: 0; grid-row: 1 / 3; }
   #meter .facts > div { justify-content: space-between; }
-  .plot h3 .wide { display: none; }
+  .plot .name .wide { display: none; }
   .seek { display: block; margin-left: 4px; }
   .timeline { height: 28px; }
   .clock { min-width: 0; font-size: 12px; line-height: 14px; text-align: left; }
@@ -406,22 +406,22 @@ body {
           </div>
         </div>
 
-        <aside class="book" id="book" aria-label="Ledger">
+        <div class="book" id="book" role="group" aria-label="Ledger">
           <p class="tally"><b id="rowCount">0</b><span id="rowWord">ledger rows</span></p>
           <ol class="ledger"><li id="slot0"></li><li id="slot1"></li></ol>
           <dl class="facts">
             <div><dt>Sender<span class="wide"> says</span></dt><dd id="senderState"></dd></div>
             <div><dt>Attempts</dt><dd id="attempts"></dd></div>
           </dl>
-        </aside>
+        </div>
 
-        <aside class="book" id="meter" aria-label="This second of the outage" hidden>
+        <div class="book" id="meter" role="group" aria-label="This second of the outage" hidden>
           <p class="tally"><b id="meterP99">0</b><span>ms healthy p99</span></p>
           <dl class="facts">
             <div><dt>Failing queue</dt><dd id="meterFailing"></dd></div>
             <div><dt>Healthy queue</dt><dd id="meterHealthy"></dd></div>
           </dl>
-        </aside>
+        </div>
 
         <div class="transport">
           <button class="control primary" id="main" type="button">
@@ -714,7 +714,8 @@ function chart(box, title, unit, series, points, T) {
     const svg = draw(box, "svg", { class: layer, viewBox: "0 0 1000 100", preserveAspectRatio: "none", "aria-hidden": "true" });
     for (const item of series) draw(svg, "path", { d: line(item.key), stroke: item.color });
   }
-  const heading = document.createElement("h3");
+  const heading = document.createElement("p");
+  heading.className = "name";
   heading.textContent = title;
   if (series.length > 1) {
     heading.textContent = "";
