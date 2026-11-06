@@ -189,8 +189,11 @@ body {
   .title p { font-size: 16px; line-height: 22px; }
   .title { margin-bottom: 12px; }
 }
+@media (max-width: 359px) {
+  .title h1 { font-size: 24px; line-height: 30px; }
+}
 @media (max-width: 639px) {
-  :root { --stage-height: clamp(386px, calc(100svh - 196px), 500px); }
+  :root { --stage-height: clamp(428px, calc(100svh - 158px), 500px); }
 }
 
 .deck { display: grid; grid-template-columns: minmax(0, 1fr) 288px; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
@@ -229,9 +232,29 @@ body {
 #token { fill: var(--forest); }
 #token.lost { fill: var(--clay); }
 
-.story { min-height: 92px; padding-top: 12px; }
+.story { height: 96px; padding-top: 12px; overflow: hidden; }
 .story h2 { margin: 0; font: 400 22px/28px var(--serif); letter-spacing: -0.015em; }
-.story p { margin: 4px 0 0; max-width: 56ch; font-size: 14px; line-height: 20px; color: var(--body); }
+.story p { margin: 4px 0 0; max-width: 72ch; font-size: 14px; line-height: 20px; color: var(--body); }
+
+/* The outage. Two charts share one time axis. */
+.plots { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) 18px; min-height: 0; cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; --at: 0; }
+.plots[hidden] { display: none; }
+.band { position: absolute; top: 0; bottom: 18px; background: var(--wash); }
+.band span { position: absolute; bottom: 2px; right: 6px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.plot { position: relative; min-height: 0; border-bottom: 1px solid var(--line-strong); }
+.plot + .plot { margin-top: 6px; }
+.plot svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.plot path { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.plot .past { opacity: .24; }
+.plot .now { clip-path: inset(-2px calc((1 - var(--at)) * 100%) -2px -2px); }
+.plot h3 { position: absolute; top: 0; left: 0; margin: 0; font: 400 12px/16px var(--sans); color: var(--muted); }
+.plot h3 i { display: inline-block; width: 12px; height: 2px; margin: 0 5px 0 10px; vertical-align: middle; }
+.plot .scale { position: absolute; top: 0; right: 0; font-size: 12px; line-height: 16px; color: var(--faint); }
+.axis { position: relative; font-size: 12px; line-height: 18px; color: var(--muted); }
+.axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+.axis span:first-child { transform: none; }
+.axis span:last-child { transform: translateX(-100%); }
+.playhead { position: absolute; top: 0; bottom: 18px; left: calc(var(--at) * 100%); width: 1px; background: var(--forest); pointer-events: none; }
 
 /* The ledger */
 .tally { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 14px; line-height: 20px; color: var(--muted); }
@@ -282,24 +305,32 @@ body {
 .clock output { color: var(--ink); }
 
 @container (max-width: 639px) {
-  .story { min-height: 84px; padding-top: 8px; }
-  .story h2 { font-size: 18px; line-height: 24px; }
+  .story { height: 86px; padding-top: 6px; }
+  .story h2 { font-size: 17px; line-height: 22px; }
   .story p { font-size: 13px; line-height: 18px; }
   .book { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; }
-  .tally { display: block; grid-row: 1 / 3; font-size: 12px; line-height: 14px; }
+  .tally { display: block; grid-row: 1 / 3; width: 48px; font-size: 11px; line-height: 13px; }
   .tally b { display: block; font-size: 36px; line-height: 38px; }
-  .tally span { display: block; max-width: 44px; }
+  .tally span { display: block; }
   .ledger { margin: 0; border-top: 0; }
-  .ledger li { height: 22px; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 0; }
-  .ledger li:not(.full) { opacity: .0; }
-  .ledger li span small { display: inline; margin-left: 6px; }
-  .facts { display: flex; justify-content: space-between; gap: 12px; margin: 0; }
+  .ledger li { height: 20px; border-bottom: 0; font-size: 12px; white-space: nowrap; }
+  .ledger li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .ledger small { display: inline; margin-left: 6px; }
+  .facts { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0 0; }
   .facts > div { justify-content: flex-start; gap: 6px; padding: 0; }
-  .facts dt, .facts dd { font-size: 12px; line-height: 18px; }
+  .facts dt, .facts dd { font-size: 12px; line-height: 18px; white-space: nowrap; }
+  .facts .wide { display: none; }
+  #meter .facts { display: block; margin: 0; grid-row: 1 / 3; }
+  #meter .facts > div { justify-content: space-between; }
+  .plot h3 .wide { display: none; }
   .seek { display: block; margin-left: 4px; }
   .timeline { height: 24px; }
   .clock { min-width: 0; font-size: 12px; line-height: 14px; text-align: left; }
   #scrub::-webkit-slider-thumb { margin-top: 5px; }
+}
+
+@container (max-width: 340px) {
+  .ledger small { display: none; }
 }
 
 /* Details */
@@ -356,8 +387,15 @@ body {
           <p class="source" id="source"></p>
         </div>
 
-        <div class="view" id="flow">
+        <div class="view">
           <svg class="lanes" id="lanes" aria-hidden="true"></svg>
+          <div class="plots" id="plots" role="img" aria-label="Queue depth and latency through the outage. The table in Details has every second." hidden>
+            <div class="band" id="band"><span>outage</span></div>
+            <div class="plot" id="queuePlot"></div>
+            <div class="plot" id="latencyPlot"></div>
+            <div class="axis" id="axis"></div>
+            <i class="playhead"></i>
+          </div>
           <div class="story">
             <h2 id="storyTitle"></h2>
             <p id="storyText"></p>
@@ -368,8 +406,16 @@ body {
           <p class="tally"><b id="rowCount">0</b><span id="rowWord">ledger rows</span></p>
           <ol class="ledger"><li id="slot0"></li><li id="slot1"></li></ol>
           <dl class="facts">
-            <div><dt>Sender says</dt><dd id="senderState"></dd></div>
+            <div><dt>Sender<span class="wide"> says</span></dt><dd id="senderState"></dd></div>
             <div><dt>Attempts</dt><dd id="attempts"></dd></div>
+          </dl>
+        </aside>
+
+        <aside class="book" id="meter" aria-label="This second of the outage" hidden>
+          <p class="tally"><b id="meterP99">0</b><span>ms healthy p99</span></p>
+          <dl class="facts">
+            <div><dt>Failing queue</dt><dd id="meterFailing"></dd></div>
+            <div><dt>Healthy queue</dt><dd id="meterHealthy"></dd></div>
           </dl>
         </aside>
 
@@ -539,12 +585,12 @@ const WORDS = {
   effect_committed: ["The receiver writes the expense", "The delivery key and the expense commit together."],
   lease_expired: ["The lease runs out", (who) => `Nothing came back from ${who}, so the sender has to try again.`],
   duplicate_detected: ["The receiver finds the key", "The key is already there, so nothing new is written."],
-  attempt_recorded: ["Two attempts left one row in the ledger", "The sender records success, and the ledger never changed."],
+  attempt_recorded: ["Two attempts left one row", "The sender records success, and the ledger never changed."],
 };
 const who = (detail) => detail.split(" ")[0];
 function crashScene(trace) {
   const row = { event: trace.event_id, amount: money(trace.amount_cents), by: "attempt 1" };
-  const moments = [{ title: "One expense is on its way to the ledger", text: "Press Play, and a test will kill the worker partway through.", at: 0, sender: "nothing yet", attempts: 0, rows: [] }];
+  const moments = [{ title: "One expense heads for the ledger", text: "Press Play, and a test will kill the worker partway through.", at: 0, sender: "nothing yet", attempts: 0, rows: [] }];
   const state = { sender: "nothing yet", attempts: 0, rows: [] };
   let holder = "the worker";
   for (const step of trace.steps) {
@@ -619,11 +665,11 @@ function naiveScene(naive) {
   return {
     name: "Naive receiver", source: "Recorded run with one dropped response and no worker killed", book: "ledger",
     moments: [
-      { title: "The same lost answer, with no key check", text: "This receiver writes a row for every request, and the test drops one response without killing a worker.", at: 0, sender, attempts: 0, rows: [] },
+      { title: "This receiver skips the key check", text: "It writes a row for every request, and the test drops one response without killing a worker.", at: 0, sender, attempts: 0, rows: [] },
       { title: "The event arrives", text: "The receiver's log counts from here.", at: 0, sender, attempts: 0, rows: [] },
       { title: "The receiver writes the expense", text: "It does not look at the delivery key.", at: written.offset_ms, sender, attempts: written.attempt, rows: [first] },
       { title: "The response is dropped", text: "The row is written, but the answer never gets back, so the sender sees a failed request.", at: dropped.offset_ms, sender, attempts: written.attempt, rows: [first] },
-      { title: "Two attempts left two rows in the ledger", text: `The retry wrote the same expense again, and the test found all ${naive.planted} of the repeats it planted.`, at: again.offset_ms, sender, attempts: again.attempt, rows: [first, second] },
+      { title: "Two attempts left two rows", text: `The retry wrote the same expense again, and the test found all ${naive.planted} of the repeats it planted.`, at: again.offset_ms, sender, attempts: again.attempt, rows: [first, second] },
     ],
     stop: 3, durations: [450, 1200, 900, 1500],
     plan: {
@@ -652,13 +698,118 @@ function naiveScene(naive) {
   };
 }
 
-const scenes = [crashScene(DATA.trace), naiveScene(DATA.naive)];
+// The outage, from one recorded run. Readings stay on their recorded second.
+const niceMax = (value) => {
+  const power = 10 ** Math.floor(Math.log10(value));
+  return [1, 2, 2.5, 5, 10].map((step) => step * power).find((step) => value <= step);
+};
+function chart(box, title, unit, series, points, T) {
+  const peak = niceMax(Math.max(...series.flatMap((item) => points.map((p) => p[item.key]))));
+  const line = (key) => points.map((p, index) => `${index ? "L" : "M"}${(p.offset_seconds / T * 1000).toFixed(1)} ${(100 - p[key] / peak * 92).toFixed(2)}`).join("");
+  for (const layer of ["past", "now"]) {
+    const svg = draw(box, "svg", { class: layer, viewBox: "0 0 1000 100", preserveAspectRatio: "none", "aria-hidden": "true" });
+    for (const item of series) draw(svg, "path", { d: line(item.key), stroke: item.color });
+  }
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  if (series.length > 1) {
+    heading.textContent = "";
+    for (const item of series) {
+      const key = document.createElement("i");
+      key.style.background = item.color;
+      if (item === series[0]) key.style.marginLeft = "0";
+      const wide = document.createElement("span");
+      wide.className = "wide";
+      wide.textContent = " destination";
+      heading.append(key, item.name, wide);
+    }
+  }
+  const scale = document.createElement("span");
+  scale.className = "scale";
+  scale.textContent = `${peak.toLocaleString("en-US")}${unit}`;
+  box.append(heading, scale);
+}
+function outageScene(outage) {
+  const points = outage.timeline;
+  const T = points[points.length - 1].offset_seconds;
+  const { start_seconds: start, end_seconds: end } = outage;
+  const plots = $("plots");
+  const clay = "var(--clay)", forest = "var(--forest)";
+  chart($("queuePlot"), "Deliveries waiting", "", [
+    { key: "failing_queue", name: "Failing", color: clay },
+    { key: "healthy_queue", name: "Healthy", color: forest },
+  ], points, T);
+  // The first seconds are process start, and the last have no arrivals.
+  chart($("latencyPlot"), "Healthy tenant p99", " ms", [{ key: "healthy_p99_ms", name: "p99", color: forest }],
+    points.filter((p) => p.healthy_count > 0 && p.offset_seconds >= 5), T);
+  $("band").style.left = `${start / T * 100}%`;
+  $("band").style.width = `${(end - start) / T * 100}%`;
+  for (let second = 0; second <= T; second += 20) {
+    const mark = document.createElement("span");
+    mark.textContent = `${second} s`;
+    mark.style.left = `${second / T * 100}%`;
+    $("axis").append(mark);
+  }
+  const reading = (t) => {
+    let found = points[0];
+    for (const point of points) { if (point.offset_seconds > t) break; found = point; }
+    return found;
+  };
+  const number = (value) => Math.round(value).toLocaleString("en-US");
+  let shown = null;
+  return {
+    name: "Outage", source: "Recorded run with the median p99, played at 10x", book: "meter", T,
+    moments: [
+      { title: "Both tenants are healthy", text: "One of their destinations is about to turn slow.", at: 0 },
+      { title: "One destination turns slow", text: "Its queue grows while the other tenant keeps moving.", at: start },
+      { title: "The destination recovers", text: "Its queue drains back down.", at: end },
+    ],
+    snaps: [0, start, end, T], keyStep: 1, msPerUnit: () => 100,
+    ticks: [start / T, end / T],
+    index: (t) => (t < start ? 0 : t < end ? 1 : 2),
+    edge: () => T,
+    clock: (t) => `+${Math.floor(t)} s`,
+    drawing: {
+      group: plots,
+      render(t) {
+        plots.style.setProperty("--at", t / T);
+        const point = reading(t);
+        if (point === shown) return;
+        shown = point;
+        $("meterP99").textContent = point.healthy_count > 0 ? number(point.healthy_p99_ms) : "0";
+        $("meterFailing").textContent = number(point.failing_queue);
+        $("meterHealthy").textContent = number(point.healthy_queue);
+      },
+    },
+  };
+}
+
+// Crash and Naive receiver share one shape: whole numbers of t are moments.
+function flowScene(scene) {
+  const T = scene.moments.length - 1;
+  const times = [];
+  scene.moments.forEach((moment, index) => { times[index] = moment.at ?? times[index - 1]; });
+  return {
+    ...scene, T,
+    drawing: plot(scene.plan),
+    snaps: scene.moments.map((_, index) => index),
+    keyStep: 0,
+    ticks: scene.moments.map((_, index) => index / T).slice(1, T),
+    stopTick: scene.stop / T,
+    msPerUnit: (t) => scene.durations[Math.floor(t)],
+    index: Math.floor,
+    edge: (t) => Math.min(Math.floor(t) + 1, T),
+    clock(t) {
+      const index = Math.floor(t);
+      const now = times[index] + (times[Math.min(T, index + 1)] - times[index]) * (t - index);
+      return scene.moments[index].at === null && t === index ? `after ${clockText(now)}` : clockText(now);
+    },
+  };
+}
+
+const scenes = [flowScene(crashScene(DATA.trace)), flowScene(naiveScene(DATA.naive)), outageScene(DATA.outage)];
 const main = $("main"), reset = $("reset"), scrub = $("scrub"), timeline = $("timeline");
 for (const scene of scenes) {
-  scene.T = scene.moments.length - 1;
-  scene.drawing = plot(scene.plan);
-  scene.times = [];
-  scene.moments.forEach((moment, index) => { scene.times[index] = moment.at ?? scene.times[index - 1]; });
   const button = document.createElement("button");
   button.className = "control";
   button.type = "button";
@@ -676,9 +827,8 @@ function setLabel(name) {
   for (const span of main.children) span.classList.toggle("on", span.dataset.label === name);
 }
 function buttons() {
-  const atEnd = t >= scene.T;
   if (playing) setLabel("Pause");
-  else if (atEnd) setLabel("Replay");
+  else if (t >= scene.T) setLabel("Replay");
   else if (t === scene.stop) setLabel("Retry");
   else setLabel(motion.matches ? "Next" : "Play");
   reset.setAttribute("aria-disabled", t === 0 && !playing ? "true" : "false");
@@ -701,28 +851,31 @@ function showMoment(index) {
   const moment = scene.moments[index];
   $("storyTitle").textContent = moment.title;
   $("storyText").textContent = moment.text;
+  $("status").textContent = moment.title;
+  if (scene.book !== "ledger") return;
   const count = moment.rows.length;
+  const words = count === 1 ? "ledger row" : "ledger rows";
   $("rowCount").textContent = count;
-  $("rowWord").textContent = count === 1 ? "ledger row" : "ledger rows";
+  $("rowWord").textContent = words;
   $("rowCount").parentElement.classList.toggle("twice", count > 1);
   slot($("slot0"), moment.rows[0]);
   slot($("slot1"), moment.rows[1]);
   $("senderState").textContent = moment.sender;
   $("attempts").textContent = moment.attempts;
-  $("status").textContent = `${moment.title}, ${count} ${count === 1 ? "ledger row" : "ledger rows"}`;
+  $("status").textContent = `${moment.title}, ${count} ${words}`;
 }
 function render() {
-  const index = Math.floor(t);
+  const index = scene.index(t);
   scene.drawing.render(t);
   if (index !== shownMoment) { shownMoment = index; showMoment(index); }
-  const held = scene.moments[index].at === null && t === index;
-  const next = scene.times[Math.min(scene.T, index + 1)];
-  const now = scene.times[index] + (next - scene.times[index]) * (t - index);
-  const text = held ? `after ${clockText(now)}` : clockText(now);
-  if (text !== shownClock) { shownClock = text; $("clock").textContent = text; }
+  const text = scene.clock(t);
+  if (text !== shownClock) {
+    shownClock = text;
+    $("clock").textContent = text;
+    scrub.setAttribute("aria-valuetext", `${scene.moments[index].title}, ${text}`);
+  }
   scrub.value = t;
   timeline.style.setProperty("--at", t / scene.T);
-  scrub.setAttribute("aria-valuetext", `${scene.moments[index].title}, ${text}`);
   buttons();
 }
 function halt() {
@@ -736,10 +889,10 @@ function seek(value) {
 }
 function advance(elapsed) {
   while (elapsed > 0 && t < scene.T) {
-    const index = Math.floor(t);
-    const edge = Math.min(index + 1, scene.T);
-    const need = (edge - t) * scene.durations[index];
-    if (elapsed < need) { t += elapsed / scene.durations[index]; return; }
+    const pace = scene.msPerUnit(t);
+    const edge = scene.edge(t);
+    const need = (edge - t) * pace;
+    if (elapsed < need) { t += elapsed / pace; return; }
     elapsed -= need;
     t = edge;
     if (t === scene.stop) { playing = false; return; }
@@ -759,31 +912,36 @@ function play() {
   frame = requestAnimationFrame(loop);
   buttons();
 }
-function neighbour(direction) {
-  const whole = direction > 0 ? Math.floor(t) + 1 : Math.ceil(t) - 1;
-  return clamp(whole, 0, scene.T);
+function step(direction) {
+  if (scene.keyStep) return t + direction * scene.keyStep;
+  return direction > 0 ? Math.floor(t) + 1 : Math.ceil(t) - 1;
 }
 function select(next) {
   halt();
   scene = next;
   t = 0;
   shownMoment = -1;
+  shownClock = "";
   for (const other of scenes) {
     other.button.setAttribute("aria-pressed", String(other === scene));
     if (other !== scene) other.drawing.group.setAttribute("hidden", "");
   }
   scene.drawing.group.removeAttribute("hidden");
+  const isChart = scene.book === "meter";
+  $("lanes").toggleAttribute("hidden", isChart);
+  $("book").hidden = isChart;
+  $("meter").hidden = !isChart;
+  token.setAttribute("opacity", 0);
   $("source").textContent = scene.source;
   scrub.max = scene.T;
   const ticks = $("ticks");
   ticks.replaceChildren();
-  scene.moments.forEach((_, index) => {
-    if (index === 0 || index === scene.T) return;
+  for (const place of scene.ticks) {
     const mark = document.createElement("i");
-    mark.style.left = `calc(var(--thumb) / 2 + (100% - var(--thumb)) * ${index / scene.T})`;
-    if (index === scene.stop) mark.className = "stop";
+    mark.style.left = `calc(var(--thumb) / 2 + (100% - var(--thumb)) * ${place})`;
+    if (place === scene.stopTick) mark.className = "stop";
     ticks.append(mark);
-  });
+  }
   render();
 }
 
@@ -793,16 +951,29 @@ main.addEventListener("click", () => {
     t = 0;
     if (motion.matches) return render();
   }
-  if (motion.matches) return seek(neighbour(1));
+  if (motion.matches) return seek(scene.snaps.find((snap) => snap > t) ?? scene.T);
   play();
 });
 reset.addEventListener("click", () => { if (reset.getAttribute("aria-disabled") !== "true") seek(0); });
 scrub.addEventListener("input", () => seek(Number(scrub.value)));
 scrub.addEventListener("keydown", (event) => {
   const move = { ArrowRight: 1, ArrowUp: 1, PageUp: 1, ArrowLeft: -1, ArrowDown: -1, PageDown: -1 }[event.key];
-  if (move) { event.preventDefault(); seek(neighbour(move)); }
+  if (move) { event.preventDefault(); seek(step(move)); }
   if (event.key === "Home") { event.preventDefault(); seek(0); }
   if (event.key === "End") { event.preventDefault(); seek(scene.T); }
+});
+// Dragging across the charts moves the playhead.
+const plots = $("plots");
+const seekFromPointer = (event) => {
+  const box = plots.getBoundingClientRect();
+  seek((event.clientX - box.left) / box.width * scene.T);
+};
+plots.addEventListener("pointerdown", (event) => {
+  plots.setPointerCapture(event.pointerId);
+  seekFromPointer(event);
+});
+plots.addEventListener("pointermove", (event) => {
+  if (plots.hasPointerCapture(event.pointerId)) seekFromPointer(event);
 });
 motion.addEventListener("change", () => { if (motion.matches) halt(); render(); });
 select(scenes[0]);
