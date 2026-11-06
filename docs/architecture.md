@@ -39,7 +39,7 @@ Each decision names the alternative that was rejected. Measurements are in
 | Receiver dedupes on a unique key | Sender tries harder to be exactly-once | No sender can do this. If the response is lost, it cannot know. The fix has to be at the receiver. |
 | `FOR NO KEY UPDATE SKIP LOCKED` on the destination | `FOR UPDATE` | `FOR UPDATE` conflicts with the foreign key lock that fan-out inserts take, so a worker could block ingress. |
 | Capacity check in a second statement | One statement with a CTE | At READ COMMITTED a statement's snapshot is taken when it starts. The lock must be held first, or the count misses claims that just committed. |
-| Advisory lock for subscription changes | `FOR SHARE` on the source row | The row lock wrote to the page on every ingress, and writers starved. See review finding 7. |
+| Advisory lock for subscription changes | `FOR SHARE` on the source row | The row lock wrote to the page on every ingress, and writers starved. |
 | Batch finishes into one commit | One commit per delivery | A durable commit is the scarcest resource on this machine. This was the largest measured gain. |
 | Open-loop load with latency from scheduled arrival | Closed-loop load | A closed loop hides stalls: it stops sending when the system stops answering. This is coordinated omission. |
 | Expected ledger rebuilt from a seed | Compare against what the system wrote | A reconciler that trusts the system cannot catch the system. |

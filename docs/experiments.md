@@ -23,7 +23,7 @@ waited in the same flush queue as ingress. So more ingress meant slower delivery
 | Commit tag | Change | Completed per second | Ack p99 | Decision |
 |---|---|---|---:|---|
 | `exp/e0-baseline` | None | 736 to 804 | 101 to 187 ms | Baseline |
-| `exp/e1-advisory` | Advisory lock in place of a row lock on the source | 933 to 1,033 | 41 to 226 ms | Kept. It also fixed the subscribe starvation in review finding 7. |
+| `exp/e1-advisory` | Advisory lock in place of a row lock on the source | 933 to 1,033 | 41 to 226 ms | Kept. It also fixed the subscribe starvation. |
 | `exp/e2-no-fk` | Dropped the foreign key to destinations | 969 to 1,006 | 37 to 42 ms | **Reverted.** No measured gain, and it gave up referential integrity. |
 | `exp/e3-batch-finish` | One commit for many finishes | 1,349 to 1,491 | 41 to 106 ms | Kept. Largest gain. |
 
