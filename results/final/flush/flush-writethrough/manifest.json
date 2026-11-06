@@ -1,6 +1,6 @@
 {
   "name": "flush-writethrough",
-  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --quiet-cpu 500 --quiet-wait 30m --name flush-writethrough --rate 1500 --workers 2 --duration 60s --warmup 10s --repetitions 3 --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/flush",
+  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --quiet-cpu 500 --quiet-wait 30m --name flush-writethrough --rate 1500 --workers 2 --duration 60s --warmup 10s --repetitions 3 --out results/final/flush",
   "started_at": "2026-11-04T20:39:25.414351-06:00",
   "elapsed_seconds": 186.454724042,
   "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",

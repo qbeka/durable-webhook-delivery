@@ -1,6 +1,6 @@
 {
   "name": "failover-async",
-  "command": "./bin/harness failover --mode async --repetitions 3 --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/failover --quiet-cpu 500 --quiet-wait 30m",
+  "command": "./bin/harness failover --mode async --repetitions 3 --out results/final/failover --quiet-cpu 500 --quiet-wait 30m",
   "started_at": "2026-11-04T20:54:07.423308-06:00",
   "elapsed_seconds": 417.449302208,
   "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",

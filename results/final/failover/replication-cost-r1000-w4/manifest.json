@@ -1,6 +1,6 @@
 {
   "name": "replication-cost-r1000-w4",
-  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --quiet-cpu 500 --quiet-wait 30m --name replication-cost-r1000-w4 --rate 1000 --workers 4 --duration 60s --warmup 10s --repetitions 3 --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/failover --engine-url postgres://hook@127.0.0.1:54340,127.0.0.1:54341/hookd?target_session_attrs=read-write",
+  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --quiet-cpu 500 --quiet-wait 30m --name replication-cost-r1000-w4 --rate 1000 --workers 4 --duration 60s --warmup 10s --repetitions 3 --out results/final/failover --engine-url postgres://hook@127.0.0.1:54340,127.0.0.1:54341/hookd?target_session_attrs=read-write",
   "started_at": "2026-11-04T21:02:41.754905-06:00",
   "elapsed_seconds": 185.795586208,
   "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",

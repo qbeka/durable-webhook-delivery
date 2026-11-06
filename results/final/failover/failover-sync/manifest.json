@@ -1,6 +1,6 @@
 {
   "name": "failover-sync",
-  "command": "./bin/harness failover --mode sync --repetitions 5 --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/failover --quiet-cpu 500 --quiet-wait 30m",
+  "command": "./bin/harness failover --mode sync --repetitions 5 --out results/final/failover --quiet-cpu 500 --quiet-wait 30m",
   "started_at": "2026-11-04T20:42:31.888361-06:00",
   "elapsed_seconds": 695.490212375,
   "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",

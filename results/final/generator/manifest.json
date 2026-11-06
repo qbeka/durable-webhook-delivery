@@ -1,6 +1,6 @@
 {
   "name": "generator",
-  "command": "./bin/harness generator --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/generator --rates 1000,2000,4000,8000,16000",
+  "command": "./bin/harness generator --out results/final/generator --rates 1000,2000,4000,8000,16000",
   "started_at": "2026-11-04T18:10:38.341565-06:00",
   "elapsed_seconds": 107.332169625,
   "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",

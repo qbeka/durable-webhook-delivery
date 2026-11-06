@@ -1,6 +1,6 @@
 {
   "name": "slow-limits-on",
-  "command": "./bin/harness recovery --name slow-limits-on --mode slow --max-in-flight 64 --breaker 5 --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/published/recovery --quiet-cpu 500 --quiet-wait 30m",
+  "command": "./bin/harness recovery --name slow-limits-on --mode slow --max-in-flight 64 --breaker 5 --out results/published/recovery --quiet-cpu 500 --quiet-wait 30m",
   "started_at": "2026-11-04T16:28:33.781885-06:00",
   "elapsed_seconds": 333.602132792,
   "commit": "3bbf3f6a838bbce8cec62eaf7ad0e998c9b95579",

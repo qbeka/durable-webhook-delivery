@@ -1,6 +1,6 @@
 {
   "name": "target-r2000-w4",
-  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --quiet-cpu 500 --quiet-wait 30m --name target-r2000-w4 --rate 2000 --workers 4 --duration 10m --warmup 10s --repetitions 3 --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/retest/target",
+  "command": "./bin/harness bench --concurrency 64 --max-in-flight 512 --drain-deadline 120s --quiet-cpu 500 --quiet-wait 30m --name target-r2000-w4 --rate 2000 --workers 4 --duration 10m --warmup 10s --repetitions 3 --out results/retest/target",
   "started_at": "2026-11-04T21:50:08.658669-06:00",
   "elapsed_seconds": 1824.90368625,
   "commit": "38504f742faa608c519959dbac9c54c13a51fb55",

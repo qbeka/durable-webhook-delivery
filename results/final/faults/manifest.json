@@ -1,6 +1,6 @@
 {
   "name": "faults",
-  "command": "./bin/harness faults --out /Users/qendrimbeka/Coding_Projects/durable-webhook-delivery/results/final/faults",
+  "command": "./bin/harness faults --out results/final/faults",
   "started_at": "2026-11-04T18:12:25.690385-06:00",
   "elapsed_seconds": 622.120296958,
   "commit": "7ba59805532f7ddb82d9c85a335b8f2fe7f47fe7",
