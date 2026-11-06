@@ -1,0 +1,23 @@
+{
+  "source": "results/final/faults/control_naive/effects-healthy.csv",
+  "event_id": "evt-2026-0",
+  "delivery_key": "dk_ba7ed0c2d9d9221611271cbb4b0a4730",
+  "amount_cents": 29278,
+  "moments": [
+    {
+      "offset_ms": 41.768148,
+      "attempt": 1,
+      "outcome": "applied"
+    },
+    {
+      "offset_ms": 41.772148,
+      "attempt": 1,
+      "outcome": "dropped_response"
+    },
+    {
+      "offset_ms": 81490.920148,
+      "attempt": 2,
+      "outcome": "applied"
+    }
+  ]
+}

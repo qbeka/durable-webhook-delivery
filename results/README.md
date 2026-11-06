@@ -12,6 +12,7 @@ Each number in the README and the report comes from a file here.
 | `spec/` | TLC model checking results, copied into `final/` | See `git log` |
 | `exploratory/` | Comparisons and diagnosis. Not results. | See each folder |
 | `site-stats.json` | Text for the website, generated from the runs | Generated |
+| `site-naive.json` | One delivery from the naive control's effect log, for the website, written by `scripts/naive_case.py` | Generated |
 
 All runs happened on 2026-11-04. Each run folder has a `manifest.json` with the commit,
 seeds, configuration, hardware, database settings, input hashes, background load and
