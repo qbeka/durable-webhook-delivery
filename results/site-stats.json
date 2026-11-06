@@ -1,24 +1,4 @@
 {
-  "lede": "A webhook engine that survives crashes without losing an event or recording one twice, tested by killing it on purpose.",
-  "stats": [
-    {
-      "value": "1,000/s",
-      "label": "for 30 minutes, p99 63 to 71 ms"
-    },
-    {
-      "value": "75",
-      "label": "workers killed on purpose"
-    },
-    {
-      "value": "0",
-      "label": "repeated expenses, of 185,200"
-    },
-    {
-      "value": "0",
-      "label": "acknowledged events lost in 5 failovers"
-    }
-  ],
-  "ridge_caption": "The line behind this page is not decoration. It is the recorded queue from the outage below.",
   "outage_intro": "One destination turned slow for 60 seconds while another tenant kept sending. This is the median of three retest runs. Per-destination limits held the healthy tenant's p99 at 61 ms. With them removed it reached 36,317 ms, about 599 times worse. The failing destination caught up 25 seconds after it recovered. The first attempt at this test missed the 250 ms budget in 2 of 3 runs, because of one second stalls that also hit before the outage began.",
   "evidence_intro": "A clean result only means something if the test could have failed. So each claim below is paired with a control that must fail. The plan was committed before the runs, and the tests that failed are shown here too.",
   "evidence": {
@@ -42,6 +22,11 @@
         "2,000 per second, ten minute runs",
         "Failed twice. p99 1,099 to 1,497 ms, then 378 to 3,881 ms. All 7,200,000 effects reconciled.",
         "250 ms budget"
+      ],
+      [
+        "75 workers killed on purpose, 185,200 deliveries",
+        "0 repeated, 0 missing",
+        "Naive receiver: 50 of 50 planted repeats found"
       ],
       [
         "100,000 events, 20,000 duplicates, 30 crashes",
@@ -102,5 +87,5 @@
     "The cause of the stalls at 2,000 per second was not found. A drive flush probe stayed fast through the retest, so a slow flush does not explain them there. A rate that holds for 60 seconds and fails at ten minutes is a real finding.",
     "The fault model is process death, lost responses and pauses. Power loss was not tested, and the failovers share one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared 2 second detection time."
   ],
-  "footer": "Offline replay of a recorded run. All data is synthetic."
+  "provenance": "This is an offline replay of recorded runs. All data is synthetic."
 }

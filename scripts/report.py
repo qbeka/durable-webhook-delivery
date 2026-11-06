@@ -358,15 +358,6 @@ def write_site_stats(s):
     long_low, long_high = s["long_run_at_top_p99_low"], s["long_run_at_top_p99_high"]
     async_low, async_high = min(s["async_lost"]), max(s["async_lost"])
     stats = {
-        "lede": "A webhook engine that survives crashes without losing an event or recording one twice, "
-                "tested by killing it on purpose.",
-        "stats": [
-            {"value": "1,000/s", "label": f"for {s['target_minutes']} minutes, p99 {s['target_p99_ms_low']:.0f} to {s['target_p99_ms_high']:.0f} ms"},
-            {"value": f"{s['worker_crashes']}", "label": "workers killed on purpose"},
-            {"value": f"{s['repeated_effects_under_fault']}", "label": f"repeated expenses, of {s['effects_under_fault']:,}"},
-            {"value": f"{s['failover_lost']}", "label": f"acknowledged events lost in {s['failovers']} failovers"},
-        ],
-        "ridge_caption": "The line behind this page is not decoration. It is the recorded queue from the outage below.",
         "outage_intro": f"One destination turned slow for 60 seconds while another tenant kept sending. This is the median of "
                         f"three retest runs. Per-destination limits held the healthy tenant's p99 at {r['limits_on_median']:.0f} ms. "
                         f"With them removed it reached {r['limits_off_median']:,.0f} ms, about {ratio:,.0f} times worse. "
@@ -382,6 +373,7 @@ def write_site_stats(s):
                 [f"{s['target_minutes']} minutes at 1,000 events per second", f"p99 {s['target_p99_ms_low']:.0f} to {s['target_p99_ms_high']:.0f} ms, {s['target_effects']:,} effects reconciled", "250 ms budget"],
                 ["2,000 per second, 60 second runs", f"p99 {s['sustained_p99_ms_low']:.0f} to {s['sustained_p99_ms_high']:.0f} ms with {s['sustained_workers']} workers", "2,500 per second failed the rule"],
                 ["2,000 per second, ten minute runs", f"Failed twice. p99 {long_low:,.0f} to {long_high:,.0f} ms, then {r['long_run_p99_low']:,.0f} to {r['long_run_p99_high']:,.0f} ms. All {s['long_run_at_top_effects'] + r['long_run_effects']:,} effects reconciled.", "250 ms budget"],
+                [f"{s['worker_crashes']} workers killed on purpose, {s['effects_under_fault']:,} deliveries", f"{s['repeated_effects_under_fault']} repeated, {s['missing_effects_under_fault']} missing", f"Naive receiver: {s['control_repeats']} of {s['control_repeats']} planted repeats found"],
                 [f"{s['parity_effects']:,} events, {s['parity_duplicates']:,} duplicates, 30 crashes", "0 repeated, 0 missing", f"Naive receiver: {s['control_repeats']} of {s['control_repeats']} planted repeats found"],
                 [f"{s['failovers']} primary failovers", f"{s['failover_lost']} acknowledged events lost", f"Async replication lost {async_low} to {async_high}"],
                 ["Slow destination isolation", f"Retest passed: p99 {r['limits_on_low']:.0f} to {r['limits_on_high']:.0f} ms. First attempt failed: {s['healthy_p99_limits_on_best_ms']:.0f} to {s['healthy_p99_limits_on_worst_ms']:.0f} ms.", f"Limits off: {r['limits_off_low']:,.0f} to {r['limits_off_high']:,.0f} ms"],
@@ -411,7 +403,7 @@ def write_site_stats(s):
             "one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared "
             "2 second detection time.",
         ],
-        "footer": "Offline replay of a recorded run. All data is synthetic.",
+        "provenance": "This is an offline replay of recorded runs. All data is synthetic.",
     }
     Path("results/site-stats.json").write_text(json.dumps(stats, indent=2) + "\n")
 
