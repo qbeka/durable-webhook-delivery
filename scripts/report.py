@@ -403,6 +403,7 @@ def write_site_stats(s):
             "one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared "
             "2 second detection time.",
         ],
+        "control_repeats": s["control_repeats"],
         "provenance": "This is an offline replay of recorded runs. All data is synthetic.",
     }
     Path("results/site-stats.json").write_text(json.dumps(stats, indent=2) + "\n")

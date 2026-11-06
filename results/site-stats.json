@@ -87,5 +87,6 @@
     "The cause of the stalls at 2,000 per second was not found. A drive flush probe stayed fast through the retest, so a slow flush does not explain them there. A rate that holds for 60 seconds and fails at ten minutes is a real finding.",
     "The fault model is process death, lost responses and pauses. Power loss was not tested, and the failovers share one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared 2 second detection time."
   ],
+  "control_repeats": 50,
   "provenance": "This is an offline replay of recorded runs. All data is synthetic."
 }

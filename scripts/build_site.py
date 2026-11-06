@@ -77,7 +77,7 @@ def main() -> None:
             "amount_cents": trace["ledger_amount_cents"],
             "ledger_rows": trace["ledger_rows"],
         },
-        "naive": naive,
+        "naive": {**naive, "planted": stats["control_repeats"]},
         "outage": {"start_seconds": start, "end_seconds": start + config["outage_ns"] / 1e9, "timeline": timeline},
     }
     # "</" cannot appear inside a script element, so escape it in the JSON.

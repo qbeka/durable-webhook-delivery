@@ -607,7 +607,52 @@ function crashScene(trace) {
   };
 }
 
-const scenes = [crashScene(DATA.trace)];
+// The naive control. Its record of a delivery is the receiver's log, so only
+// the receiver's moments are here, and there is no sender state to show.
+function naiveScene(naive) {
+  const [written, dropped, again] = naive.moments;
+  const amount = money(naive.amount_cents);
+  const first = { event: naive.event_id, amount, by: `attempt ${written.attempt}` };
+  const second = { event: naive.event_id, amount, by: `attempt ${again.attempt}`, again: true };
+  const sender = "not in this log";
+  const BREAK = 76;
+  return {
+    name: "Naive receiver", source: "Recorded. A dropped response, no worker killed.", book: "ledger",
+    moments: [
+      { title: "The same lost answer, with no key check.", text: "This receiver writes a row for every request. The test drops one response. No worker is killed.", at: 0, sender, attempts: 0, rows: [] },
+      { title: "The event arrives.", text: "The receiver's log counts from here.", at: 0, sender, attempts: 0, rows: [] },
+      { title: "The receiver writes the expense.", text: "It does not look at the delivery key.", at: written.offset_ms, sender, attempts: written.attempt, rows: [first] },
+      { title: "The response is dropped.", text: "The row is written, but no answer gets back. To the sender this looks like a failed request.", at: dropped.offset_ms, sender, attempts: written.attempt, rows: [first] },
+      { title: "Two attempts. Two rows.", text: `The retry wrote the same expense again. The test planted ${naive.planted} of these and found all ${naive.planted}.`, at: again.offset_ms, sender, attempts: again.attempt, rows: [first, second] },
+    ],
+    stop: 3, durations: [450, 1200, 900, 1500],
+    plan: {
+      lines: [
+        { lane: 0, x0: X.S, x1: X.W, a: 1, b: 1.5 },
+        { lane: 0, x0: X.W, x1: X.R, a: 1.5, b: 2 },
+        { lane: 0, back: true, lost: true, x0: X.R, x1: BREAK, a: 2, b: 3 },
+        { lane: 1, x0: X.S, x1: X.W, a: 3, b: 3.5 },
+        { lane: 1, x0: X.W, x1: X.R, a: 3.5, b: 4 },
+      ],
+      spots: [
+        { lane: 0, x: X.S, from: 1 },
+        { lane: 0, x: X.W, from: 1.5 },
+        { lane: 0, x: X.R, from: 2 },
+        { lane: 1, x: X.S, from: 3 },
+        { lane: 1, x: X.W, from: 3.5 },
+        { lane: 1, x: X.R, from: 4 },
+      ],
+      marks: [{ lane: 0, x: BREAK, from: 2.98 }],
+      captions: [
+        { lane: 0, x: X.R, anchor: "end", text: "wrote 1 row", from: 2, above: true },
+        { lane: 0, x: 76, text: "response dropped", from: 2.9, clay: true },
+        { lane: 1, x: X.R, anchor: "end", text: "wrote a second row", from: 4, above: true, clay: true },
+      ],
+    },
+  };
+}
+
+const scenes = [crashScene(DATA.trace), naiveScene(DATA.naive)];
 const main = $("main"), reset = $("reset"), scrub = $("scrub"), timeline = $("timeline");
 for (const scene of scenes) {
   scene.T = scene.moments.length - 1;
