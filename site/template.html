@@ -212,6 +212,96 @@ body {
   .transport { padding: 6px; }
 }
 
+/* The path: two attempts, one above the other. */
+.lanes { display: block; width: 100%; height: 100%; min-height: 0; overflow: visible; font-family: var(--sans); }
+.lanes text { font-size: 12px; fill: var(--muted); }
+.lanes .station { font-size: 13px; fill: var(--ink); }
+.lanes .attempt { fill: var(--faint); }
+.lanes .clay { fill: var(--clay-ink); }
+.guide { stroke: var(--line); stroke-width: 1; }
+.track { stroke: var(--line-strong); stroke-width: 1; }
+.ink { stroke: var(--forest); stroke-width: 1.5; stroke-linecap: round; }
+.ink.lost { stroke: var(--clay); stroke-dasharray: 3 4; }
+.spot { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1; }
+.spot.on { fill: var(--forest); stroke: var(--forest); }
+.spot.dead { fill: var(--surface); stroke: var(--clay); stroke-width: 1.5; }
+.cross path { fill: none; stroke: var(--clay); stroke-width: 1.5; stroke-linecap: round; }
+#token { fill: var(--forest); }
+#token.lost { fill: var(--clay); }
+
+.story { min-height: 92px; padding-top: 12px; }
+.story h2 { margin: 0; font: 400 22px/28px var(--serif); letter-spacing: -0.015em; }
+.story p { margin: 4px 0 0; max-width: 56ch; font-size: 14px; line-height: 20px; color: var(--body); }
+
+/* The ledger */
+.tally { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 14px; line-height: 20px; color: var(--muted); }
+.tally b { font: 400 56px/60px var(--serif); letter-spacing: -0.03em; color: var(--ink); transition: color .2s; }
+.tally.twice b { color: var(--clay-ink); }
+.ledger { margin: 12px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.ledger li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; height: 44px; border-bottom: 1px dashed var(--line-strong); font-size: 13px; line-height: 18px; }
+.ledger li.full { border-bottom-style: solid; border-bottom-color: var(--line); }
+.ledger li > span { display: block; transition: opacity .18s, transform .18s; }
+.ledger li:not(.full) > span { opacity: 0; transform: translateY(4px); }
+.ledger .amount { font-weight: 500; }
+.ledger small { display: block; font-size: 12px; line-height: 16px; color: var(--muted); }
+.ledger li.again .amount, .ledger li.again small { color: var(--clay-ink); }
+.facts { margin: 12px 0 0; }
+.facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.facts dt { font-size: 13px; line-height: 20px; color: var(--muted); }
+.facts dd { margin: 0; font-size: 13px; line-height: 20px; font-weight: 500; color: var(--ink); text-align: right; }
+
+/* The transport. The main button keeps one width through all its labels. */
+#main { display: inline-grid; flex: none; min-width: 68px; }
+#main > span { grid-area: 1 / 1; visibility: hidden; }
+#main > span.on { visibility: visible; }
+#reset { flex: none; }
+.seek { display: flex; flex: 1 1 auto; align-items: center; gap: 16px; min-width: 0; margin-left: 8px; }
+.timeline { position: relative; flex: 1 1 auto; min-width: 0; height: 36px; --thumb: 14px; --at: 0; }
+.ticks { position: absolute; inset: 0; pointer-events: none; }
+.ticks::before, .ticks::after { content: ''; position: absolute; top: 50%; left: calc(var(--thumb) / 2); height: 1px; background: var(--line-strong); }
+.ticks::before { right: calc(var(--thumb) / 2); }
+.ticks::after { width: calc((100% - var(--thumb)) * var(--at)); height: 2px; margin-top: -0.5px; background: var(--forest); }
+.ticks i { position: absolute; top: calc(50% - 4px); width: 1px; height: 9px; background: var(--line-strong); }
+.ticks i.stop { background: var(--clay); }
+#scrub { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; cursor: pointer; appearance: none; -webkit-appearance: none; touch-action: pan-y; }
+#scrub:focus-visible { outline-offset: -2px; border-radius: var(--radius-control); }
+#scrub::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+#scrub::-moz-range-track { background: transparent; }
+#scrub::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px; margin-top: calc((var(--control-height) - 14px) / 2);
+  border: 2px solid var(--forest); border-radius: 50%; background: var(--paper); transition: background-color .12s, transform .12s;
+}
+#scrub::-moz-range-thumb { box-sizing: border-box; width: 14px; height: 14px; border: 2px solid var(--forest); border-radius: 50%; background: var(--paper); }
+#scrub:active::-webkit-slider-thumb { background: var(--forest); transform: scale(1.15); }
+#scrub:active::-moz-range-thumb { background: var(--forest); }
+@media (hover: hover) {
+  #scrub:hover::-webkit-slider-thumb { background: var(--wash-strong); }
+  #scrub:active::-webkit-slider-thumb { background: var(--forest); }
+}
+.clock { flex: none; margin: 0; min-width: 136px; font-size: 13px; line-height: 16px; color: var(--muted); text-align: right; white-space: nowrap; }
+.clock output { color: var(--ink); }
+
+@container (max-width: 639px) {
+  .story { min-height: 84px; padding-top: 8px; }
+  .story h2 { font-size: 18px; line-height: 24px; }
+  .story p { font-size: 13px; line-height: 18px; }
+  .book { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; }
+  .tally { display: block; grid-row: 1 / 3; font-size: 12px; line-height: 14px; }
+  .tally b { display: block; font-size: 36px; line-height: 38px; }
+  .tally span { display: block; max-width: 44px; }
+  .ledger { margin: 0; border-top: 0; }
+  .ledger li { height: 22px; grid-template-columns: minmax(0, 1fr) auto; border-bottom: 0; }
+  .ledger li:not(.full) { opacity: .0; }
+  .ledger li span small { display: inline; margin-left: 6px; }
+  .facts { display: flex; justify-content: space-between; gap: 12px; margin: 0; }
+  .facts > div { justify-content: flex-start; gap: 6px; padding: 0; }
+  .facts dt, .facts dd { font-size: 12px; line-height: 18px; }
+  .seek { display: block; margin-left: 4px; }
+  .timeline { height: 24px; }
+  .clock { min-width: 0; font-size: 12px; line-height: 14px; text-align: left; }
+  #scrub::-webkit-slider-thumb { margin-top: 5px; }
+}
+
 /* Details */
 .reading h3:first-of-type { margin-top: 36px; }
 .more { margin-top: 12px; border-top: 1px solid var(--line); }
@@ -261,7 +351,42 @@ body {
     <section class="stage" id="stage" aria-label="Recorded replay of one expense">
       <noscript><p class="prose" style="padding:20px 24px">The replay needs JavaScript. The details below still work.</p></noscript>
       <div class="deck" id="deck">
-        <!--STAGE-->
+        <div class="head">
+          <div class="scenes" id="scenes" role="group" aria-label="Recording"></div>
+          <p class="source" id="source"></p>
+        </div>
+
+        <div class="view" id="flow">
+          <svg class="lanes" id="lanes" aria-hidden="true"></svg>
+          <div class="story">
+            <h2 id="storyTitle"></h2>
+            <p id="storyText"></p>
+          </div>
+        </div>
+
+        <aside class="book" id="book" aria-label="Ledger">
+          <p class="tally"><b id="rowCount">0</b><span id="rowWord">ledger rows</span></p>
+          <ol class="ledger"><li id="slot0"></li><li id="slot1"></li></ol>
+          <dl class="facts">
+            <div><dt>Sender says</dt><dd id="senderState"></dd></div>
+            <div><dt>Attempts</dt><dd id="attempts"></dd></div>
+          </dl>
+        </aside>
+
+        <div class="transport">
+          <button class="control primary" id="main" type="button">
+            <span data-label="Play">Play</span><span data-label="Pause">Pause</span><span data-label="Next">Next</span><span data-label="Retry">Retry</span><span data-label="Replay">Replay</span>
+          </button>
+          <button class="control outline" id="reset" type="button" aria-disabled="true">Reset</button>
+          <div class="seek">
+            <div class="timeline" id="timeline">
+              <div class="ticks" id="ticks" aria-hidden="true"></div>
+              <input id="scrub" type="range" min="0" max="1" step="0.001" value="0" aria-label="Position in the recording">
+            </div>
+            <p class="clock"><span>Recorded</span> <output id="clock">+0 ms</output></p>
+          </div>
+        </div>
+        <div class="sr-only" id="status" role="status"></div>
       </div>
     </section>
 
@@ -319,5 +444,324 @@ body {
 </div>
 
 <script id="data" type="application/json">/*DATA*/</script>
+<script>
+"use strict";
+(() => {
+const $ = (id) => document.getElementById(id);
+const DATA = JSON.parse($("data").textContent);
+const SVG = "http://www.w3.org/2000/svg";
+const motion = matchMedia("(prefers-reduced-motion: reduce)");
+const clamp = (value, low = 0, high = 1) => Math.min(high, Math.max(low, value));
+const smooth = (p) => p * p * (3 - 2 * p);
+const money = (cents) => `$${(cents / 100).toFixed(2)} CAD`;
+const clockText = (ms) => (ms < 1000 ? `+${Math.round(ms)} ms` : `+${(ms / 1000).toFixed(2)} s`);
+function draw(parent, name, attributes = {}, text) {
+  const made = document.createElementNS(SVG, name);
+  for (const [key, value] of Object.entries(attributes)) made.setAttribute(key, value);
+  if (text !== undefined) made.textContent = text;
+  parent.append(made);
+  return made;
+}
+
+// The path. Everything is placed in percent, so a resize needs no code.
+const X = { S: 0, W: 50, R: 100 };
+const LANE = [{ out: 34, back: 40, label: 26, below: 51, above: 26 }, { out: 70, back: 76, label: 62, below: 87, above: 62 }];
+const lanes = $("lanes");
+for (const [name, x, anchor] of [["Sender", X.S, "start"], ["Worker", X.W, "middle"], ["Receiver", X.R, "end"]]) {
+  draw(lanes, "text", { class: "station", x: `${x}%`, y: "4%", dy: "8", "text-anchor": anchor }, name);
+}
+LANE.forEach((lane, index) => {
+  draw(lanes, "text", { class: "attempt", x: `${X.S}%`, y: `${lane.label}%`, dy: "-3" }, `Attempt ${index + 1}`);
+  for (const y of [lane.out, lane.back]) draw(lanes, "line", { class: "track", x1: `${X.S}%`, x2: `${X.R}%`, y1: `${y}%`, y2: `${y}%` });
+});
+const token = draw(lanes, "circle", { id: "token", r: 5, opacity: 0 });
+
+// One group per recording, drawn from a plan: lines, spots, marks and captions, each with the time it appears.
+function plot(plan) {
+  const group = draw(lanes, "g", { hidden: "" });
+  const lines = plan.lines.map((line) => {
+    const y = LANE[line.lane][line.back ? "back" : "out"];
+    const ink = draw(group, "line", { class: `ink${line.lost ? " lost" : ""}`, x1: `${line.x0}%`, x2: `${line.x0}%`, y1: `${y}%`, y2: `${y}%`, opacity: 0 });
+    return { ...line, ink, y, shown: -1 };
+  });
+  const spots = plan.spots.map((spot) => {
+    const y = LANE[spot.lane][spot.back ? "back" : "out"];
+    return { ...spot, shape: draw(group, "circle", { class: "spot", cx: `${spot.x}%`, cy: `${y}%`, r: 3.5, opacity: spot.back ? 0 : 1 }) };
+  });
+  const marks = plan.marks.map((mark) => {
+    const y = LANE[mark.lane].back;
+    const place = draw(group, "svg", { class: "cross", x: `${mark.x}%`, y: `${y}%`, overflow: "visible", opacity: 0 });
+    draw(place, "path", { d: "M-4 -4L4 4M4 -4L-4 4" });
+    return { ...mark, place };
+  });
+  const captions = plan.captions.map((caption) => {
+    const y = LANE[caption.lane][caption.above ? "above" : "below"];
+    const shape = draw(group, "text", { class: caption.clay ? "clay" : "", x: `${caption.x}%`, y: `${y}%`, dy: caption.above ? "-3" : "0", "text-anchor": caption.anchor ?? "middle", opacity: 0 }, caption.text);
+    return { ...caption, shape };
+  });
+  const showAt = (shape, t, from, until = Infinity) => shape.setAttribute("opacity", t >= from && t < until ? 1 : 0);
+  return {
+    group,
+    render(t) {
+      let active = null;
+      for (const line of lines) {
+        const p = smooth(clamp((t - line.a) / (line.b - line.a)));
+        if (t > line.a && t < line.b) active = { x: line.x0 + (line.x1 - line.x0) * p, y: line.y, lost: line.lost };
+        if (p !== line.shown) {
+          line.shown = p;
+          line.ink.setAttribute("x2", `${line.x0 + (line.x1 - line.x0) * p}%`);
+          line.ink.setAttribute("opacity", p > 0 ? 1 : 0);
+        }
+      }
+      for (const spot of spots) {
+        spot.shape.setAttribute("class", `spot${t >= spot.from ? " on" : ""}${t >= (spot.dead ?? Infinity) ? " dead" : ""}`);
+        if (spot.back) showAt(spot.shape, t, spot.from);
+      }
+      for (const mark of marks) showAt(mark.place, t, mark.from);
+      for (const caption of captions) showAt(caption.shape, t, caption.from, caption.until);
+      if (active === null && t > 0 && t < 1) active = { x: X.S, y: LANE[0].out, grow: t };
+      token.setAttribute("opacity", active ? 1 : 0);
+      if (active) {
+        token.setAttribute("cx", `${active.x}%`);
+        token.setAttribute("cy", `${active.y}%`);
+        token.setAttribute("r", active.grow === undefined ? 5 : 5 * active.grow);
+        token.setAttribute("class", active.lost ? "lost" : "");
+      }
+    },
+  };
+}
+
+// The crash, read from the recorded trace. The steps are recorded. The lost
+// acknowledgement has no timestamp of its own, so it is added between them.
+const WORDS = {
+  event_committed: ["The sender stores the event.", "It commits the event first, so a crash from here on cannot lose it."],
+  claim_committed: [(who) => `${who} takes the delivery.`, "It commits a lease before any request leaves."],
+  effect_committed: ["The receiver writes the expense.", "The delivery key and the expense commit together."],
+  lease_expired: ["The lease runs out.", (who) => `Nothing came back from ${who}, so the sender has to try again.`],
+  duplicate_detected: ["The receiver finds the key.", "It is already there, so nothing new is written."],
+  attempt_recorded: ["Two attempts. One row.", "The sender records success. The ledger never changed."],
+};
+const who = (detail) => detail.split(" ")[0];
+function crashScene(trace) {
+  const row = { event: trace.event_id, amount: money(trace.amount_cents), by: "attempt 1" };
+  const moments = [{ title: "One expense on its way to the ledger.", text: "Press Play. A test kills the worker partway through.", at: 0, sender: "nothing yet", attempts: 0, rows: [] }];
+  const state = { sender: "nothing yet", attempts: 0, rows: [] };
+  let holder = "the worker";
+  for (const step of trace.steps) {
+    const [title, text] = WORDS[step.action];
+    if (step.action === "event_committed") state.sender = "pending";
+    if (step.action === "claim_committed") { holder = who(step.detail); state.sender = "leased"; state.attempts += 1; }
+    if (step.action === "lease_expired") state.sender = "pending";
+    if (step.action === "effect_committed") state.rows = [row];
+    if (step.action === "attempt_recorded") state.sender = "succeeded";
+    moments.push({
+      title: typeof title === "function" ? title(holder) : title,
+      text: typeof text === "function" ? text(holder) : text,
+      at: step.offset_ms, ...state,
+    });
+    if (step.action === "effect_committed") {
+      moments.push({
+        title: "The acknowledgement is lost.",
+        text: `The receiver answered, then the test killed ${holder} before it could report. The ledger has the expense. The sender does not know.`,
+        at: null, ...state, lost: true,
+      });
+    }
+  }
+  const first = who(trace.steps.find((s) => s.action === "claim_committed").detail);
+  const second = who(trace.steps.findLast((s) => s.action === "claim_committed").detail);
+  const BREAK = 23;
+  return {
+    name: "Crash", source: "Recorded. The test killed a worker on purpose.", book: "ledger",
+    moments, stop: 4, durations: [450, 800, 800, 1200, 1500, 800, 800, 1200],
+    plan: {
+      lines: [
+        { lane: 0, x0: X.S, x1: X.W, a: 1, b: 2 },
+        { lane: 0, x0: X.W, x1: X.R, a: 2, b: 3 },
+        { lane: 0, back: true, x0: X.R, x1: X.W, a: 3, b: 3.55 },
+        { lane: 0, back: true, lost: true, x0: X.W, x1: BREAK, a: 3.55, b: 4 },
+        { lane: 1, x0: X.S, x1: X.W, a: 5, b: 6 },
+        { lane: 1, x0: X.W, x1: X.R, a: 6, b: 7 },
+        { lane: 1, back: true, x0: X.R, x1: X.W, a: 7, b: 7.5 },
+        { lane: 1, back: true, x0: X.W, x1: X.S, a: 7.5, b: 8 },
+      ],
+      spots: [
+        { lane: 0, x: X.S, from: 1 },
+        { lane: 0, x: X.W, from: 2, dead: 3.55 },
+        { lane: 0, x: X.R, from: 3 },
+        { lane: 1, x: X.S, from: 5 },
+        { lane: 1, x: X.W, from: 6 },
+        { lane: 1, x: X.R, from: 7 },
+        { lane: 1, back: true, x: X.S, from: 8 },
+      ],
+      marks: [{ lane: 0, x: BREAK, from: 3.98 }],
+      captions: [
+        { lane: 0, x: X.W, text: first, from: 2, until: 3.55 },
+        { lane: 0, x: X.W, text: `${first} killed`, from: 3.55, clay: true },
+        { lane: 0, x: 17, text: "answer lost", from: 3.9, clay: true },
+        { lane: 0, x: X.R, anchor: "end", text: "wrote 1 row", from: 3, above: true },
+        { lane: 1, x: X.W, text: second, from: 6 },
+        { lane: 1, x: X.R, anchor: "end", text: "key found, no write", from: 7, above: true },
+        { lane: 1, x: X.S, anchor: "start", text: "success", from: 8 },
+      ],
+    },
+  };
+}
+
+const scenes = [crashScene(DATA.trace)];
+const main = $("main"), reset = $("reset"), scrub = $("scrub"), timeline = $("timeline");
+for (const scene of scenes) {
+  scene.T = scene.moments.length - 1;
+  scene.drawing = plot(scene.plan);
+  scene.times = [];
+  scene.moments.forEach((moment, index) => { scene.times[index] = moment.at ?? scene.times[index - 1]; });
+  const button = document.createElement("button");
+  button.className = "control";
+  button.type = "button";
+  button.textContent = scene.name;
+  button.addEventListener("click", () => select(scene));
+  $("scenes").append(button);
+  scene.button = button;
+}
+
+let scene = null, t = 0, playing = false, frame = 0, last = 0, shownMoment = -1, shownClock = "", shownLabel = "";
+
+function setLabel(name) {
+  if (name === shownLabel) return;
+  shownLabel = name;
+  for (const span of main.children) span.classList.toggle("on", span.dataset.label === name);
+}
+function buttons() {
+  const atEnd = t >= scene.T;
+  if (playing) setLabel("Pause");
+  else if (atEnd) setLabel("Replay");
+  else if (t === scene.stop) setLabel("Retry");
+  else setLabel(motion.matches ? "Next" : "Play");
+  reset.setAttribute("aria-disabled", t === 0 && !playing ? "true" : "false");
+}
+function slot(element, row) {
+  element.className = row ? `full${row.again ? " again" : ""}` : "";
+  element.replaceChildren();
+  if (!row) return;
+  const left = document.createElement("span");
+  left.textContent = row.event;
+  const by = document.createElement("small");
+  by.textContent = row.by;
+  left.append(by);
+  const right = document.createElement("span");
+  right.className = "amount";
+  right.textContent = row.amount;
+  element.append(left, right);
+}
+function showMoment(index) {
+  const moment = scene.moments[index];
+  $("storyTitle").textContent = moment.title;
+  $("storyText").textContent = moment.text;
+  const count = moment.rows.length;
+  $("rowCount").textContent = count;
+  $("rowWord").textContent = count === 1 ? "ledger row" : "ledger rows";
+  $("rowCount").parentElement.classList.toggle("twice", count > 1);
+  slot($("slot0"), moment.rows[0]);
+  slot($("slot1"), moment.rows[1]);
+  $("senderState").textContent = moment.sender;
+  $("attempts").textContent = moment.attempts;
+  $("status").textContent = `${moment.title} ${count} ${count === 1 ? "ledger row" : "ledger rows"}.`;
+}
+function render() {
+  const index = Math.floor(t);
+  scene.drawing.render(t);
+  if (index !== shownMoment) { shownMoment = index; showMoment(index); }
+  const held = scene.moments[index].at === null && t === index;
+  const next = scene.times[Math.min(scene.T, index + 1)];
+  const now = scene.times[index] + (next - scene.times[index]) * (t - index);
+  const text = held ? `after ${clockText(now)}` : clockText(now);
+  if (text !== shownClock) { shownClock = text; $("clock").textContent = text; }
+  scrub.value = t;
+  timeline.style.setProperty("--at", t / scene.T);
+  scrub.setAttribute("aria-valuetext", `${scene.moments[index].title} ${text}`);
+  buttons();
+}
+function halt() {
+  playing = false;
+  cancelAnimationFrame(frame);
+}
+function seek(value) {
+  halt();
+  t = clamp(value, 0, scene.T);
+  render();
+}
+function advance(elapsed) {
+  while (elapsed > 0 && t < scene.T) {
+    const index = Math.floor(t);
+    const edge = Math.min(index + 1, scene.T);
+    const need = (edge - t) * scene.durations[index];
+    if (elapsed < need) { t += elapsed / scene.durations[index]; return; }
+    elapsed -= need;
+    t = edge;
+    if (t === scene.stop) { playing = false; return; }
+  }
+  playing = false;
+}
+function loop(now) {
+  // A hidden tab stops frames. It should resume where it was, not jump.
+  advance(Math.min(now - last, 100));
+  last = now;
+  render();
+  if (playing) frame = requestAnimationFrame(loop);
+}
+function play() {
+  playing = true;
+  last = performance.now();
+  frame = requestAnimationFrame(loop);
+  buttons();
+}
+function neighbour(direction) {
+  const whole = direction > 0 ? Math.floor(t) + 1 : Math.ceil(t) - 1;
+  return clamp(whole, 0, scene.T);
+}
+function select(next) {
+  halt();
+  scene = next;
+  t = 0;
+  shownMoment = -1;
+  for (const other of scenes) {
+    other.button.setAttribute("aria-pressed", String(other === scene));
+    if (other !== scene) other.drawing.group.setAttribute("hidden", "");
+  }
+  scene.drawing.group.removeAttribute("hidden");
+  $("source").textContent = scene.source;
+  scrub.max = scene.T;
+  const ticks = $("ticks");
+  ticks.replaceChildren();
+  scene.moments.forEach((_, index) => {
+    if (index === 0 || index === scene.T) return;
+    const mark = document.createElement("i");
+    mark.style.left = `calc(var(--thumb) / 2 + (100% - var(--thumb)) * ${index / scene.T})`;
+    if (index === scene.stop) mark.className = "stop";
+    ticks.append(mark);
+  });
+  render();
+}
+
+main.addEventListener("click", () => {
+  if (playing) { halt(); return render(); }
+  if (t >= scene.T) {
+    t = 0;
+    if (motion.matches) return render();
+  }
+  if (motion.matches) return seek(neighbour(1));
+  play();
+});
+reset.addEventListener("click", () => { if (reset.getAttribute("aria-disabled") !== "true") seek(0); });
+scrub.addEventListener("input", () => seek(Number(scrub.value)));
+scrub.addEventListener("keydown", (event) => {
+  const move = { ArrowRight: 1, ArrowUp: 1, PageUp: 1, ArrowLeft: -1, ArrowDown: -1, PageDown: -1 }[event.key];
+  if (move) { event.preventDefault(); seek(neighbour(move)); }
+  if (event.key === "Home") { event.preventDefault(); seek(0); }
+  if (event.key === "End") { event.preventDefault(); seek(scene.T); }
+});
+motion.addEventListener("change", () => { if (motion.matches) halt(); render(); });
+select(scenes[0]);
+})();
+</script>
 </body>
 </html>
