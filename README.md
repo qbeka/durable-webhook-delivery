@@ -71,7 +71,7 @@ make smoke
 | `make site` | Rebuilds the report and website from recorded runs | Seconds |
 | `scripts/run-final.sh` | Reruns every recorded experiment from one commit. Close other work first. | 3.5 hours |
 
-Open `site/index.html` for an offline replay of one lost acknowledgement.
+[Open the live replay](https://www.qendrimbeka.com/projects/durable-webhook-delivery/index.html) of one lost acknowledgement. `site/index.html` is the same page offline.
 
 ## How it works
 
