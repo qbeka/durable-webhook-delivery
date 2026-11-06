@@ -274,7 +274,7 @@ body {
 .facts dd { margin: 0; font-size: 13px; line-height: 20px; font-weight: 500; color: var(--ink); text-align: right; }
 
 /* The transport. The main button keeps one width through all its labels. */
-#main { display: inline-grid; flex: none; min-width: 68px; }
+#main { display: inline-grid; flex: none; justify-items: center; min-width: 68px; }
 #main > span { grid-area: 1 / 1; visibility: hidden; }
 #main > span.on { visibility: visible; }
 #reset { flex: none; }
@@ -304,6 +304,9 @@ body {
 .clock { flex: none; margin: 0; min-width: 136px; font-size: 13px; line-height: 16px; color: var(--muted); text-align: right; white-space: nowrap; }
 .clock output { color: var(--ink); }
 
+@container (max-width: 860px) {
+  .story { height: 116px; }
+}
 @container (max-width: 639px) {
   .story { height: 86px; padding-top: 6px; }
   .story h2 { font-size: 17px; line-height: 22px; }
