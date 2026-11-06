@@ -1,6 +1,6 @@
 # Results
 
-Each number in the README, the report and the resume bullets comes from a file here.
+Each number in the README and the report comes from a file here.
 
 | Folder | What it holds | Commit |
 |---|---|---|
