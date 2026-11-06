@@ -48,6 +48,7 @@ report:
 site: report
 	python3 scripts/build_site.py \
 		--trace results/final/faults/kill_after_commit_before_ack/trace.json \
+		--naive results/site-naive.json \
 		--recovery results/retest/recovery/slow-limits-on/rep-1/recovery.json \
 		--stats results/site-stats.json --out site/index.html
 
