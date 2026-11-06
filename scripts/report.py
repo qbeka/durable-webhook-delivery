@@ -372,11 +372,11 @@ def write_site_stats(s):
             "rows": [
                 [f"{s['target_minutes']} minutes at 1,000 events per second", f"p99 {s['target_p99_ms_low']:.0f} to {s['target_p99_ms_high']:.0f} ms, {s['target_effects']:,} effects reconciled", "250 ms budget"],
                 ["2,000 per second, 60 second runs", f"p99 {s['sustained_p99_ms_low']:.0f} to {s['sustained_p99_ms_high']:.0f} ms with {s['sustained_workers']} workers", "2,500 per second failed the rule"],
-                ["2,000 per second, ten minute runs", f"Failed twice. p99 {long_low:,.0f} to {long_high:,.0f} ms, then {r['long_run_p99_low']:,.0f} to {r['long_run_p99_high']:,.0f} ms. All {s['long_run_at_top_effects'] + r['long_run_effects']:,} effects reconciled.", "250 ms budget"],
+                ["2,000 per second, ten minute runs", f"Failed twice, with a p99 of {long_low:,.0f} to {long_high:,.0f} ms and then {r['long_run_p99_low']:,.0f} to {r['long_run_p99_high']:,.0f} ms, though all {s['long_run_at_top_effects'] + r['long_run_effects']:,} effects reconciled", "250 ms budget"],
                 [f"{s['worker_crashes']} workers killed on purpose, {s['effects_under_fault']:,} deliveries", f"{s['repeated_effects_under_fault']} repeated, {s['missing_effects_under_fault']} missing", f"Naive receiver: {s['control_repeats']} of {s['control_repeats']} planted repeats found"],
                 [f"{s['parity_effects']:,} events, {s['parity_duplicates']:,} duplicates, 30 crashes", "0 repeated, 0 missing", f"Naive receiver: {s['control_repeats']} of {s['control_repeats']} planted repeats found"],
                 [f"{s['failovers']} primary failovers", f"{s['failover_lost']} acknowledged events lost", f"Async replication lost {async_low} to {async_high}"],
-                ["Slow destination isolation", f"Retest passed: p99 {r['limits_on_low']:.0f} to {r['limits_on_high']:.0f} ms. First attempt failed: {s['healthy_p99_limits_on_best_ms']:.0f} to {s['healthy_p99_limits_on_worst_ms']:.0f} ms.", f"Limits off: {r['limits_off_low']:,.0f} to {r['limits_off_high']:,.0f} ms"],
+                ["Slow destination isolation", f"Passed its retest at a p99 of {r['limits_on_low']:.0f} to {r['limits_on_high']:.0f} ms, after the first attempt failed at {s['healthy_p99_limits_on_best_ms']:.0f} to {s['healthy_p99_limits_on_worst_ms']:.0f} ms", f"Limits off: {r['limits_off_low']:,.0f} to {r['limits_off_high']:,.0f} ms"],
                 ["Lease protocol, TLA+", f"{s['model_states']:,} states, no violation", f"{s['model_controls']} of {s['model_controls']} broken designs caught"],
                 ["Test suite", s["mutants"], "Each mutant removes one rule"],
             ],
@@ -402,6 +402,10 @@ def write_site_stats(s):
             "The fault model is process death, lost responses and pauses. Power loss was not tested, and the failovers share "
             "one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared "
             "2 second detection time.",
+            "The crash and the naive case are different faults, so their retry times should not be compared. The naive case is "
+            "the receiver's log for one event, which holds no worker or sender times, and its amount comes from the run's seed.",
+            "The kill has no timestamp of its own, so the lost acknowledgement sits between two recorded steps. The stage stretches "
+            "the first milliseconds and shortens the waits, while its clock shows recorded time.",
         ],
         "control_repeats": s["control_repeats"],
         "provenance": "This is an offline replay of recorded runs. All data is synthetic.",

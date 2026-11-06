@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Durable Webhook Delivery</title>
-<meta name="description" content="A crash should not add the same expense twice.">
+<meta name="description" content="A crash should not add the same expense twice">
 <style>
 @font-face { font-family: 'Geist Serif'; src: url(data:font/woff2;base64,/*FONT_SERIF*/) format('woff2'); font-weight: 400; font-display: swap; }
 @font-face { font-family: 'Geist'; src: url(data:font/woff2;base64,/*FONT_REGULAR*/) format('woff2'); font-weight: 400; font-display: swap; }
@@ -345,7 +345,7 @@ body {
   <main>
     <header class="title">
       <h1>Durable Webhook Delivery</h1>
-      <p>A crash should not add the same expense twice.</p>
+      <p>A crash should not add the same expense twice</p>
     </header>
 
     <section class="stage" id="stage" aria-label="Recorded replay of one expense">
@@ -534,17 +534,17 @@ function plot(plan) {
 // The crash, read from the recorded trace. The steps are recorded. The lost
 // acknowledgement has no timestamp of its own, so it is added between them.
 const WORDS = {
-  event_committed: ["The sender stores the event.", "It commits the event first, so a crash from here on cannot lose it."],
-  claim_committed: [(who) => `${who} takes the delivery.`, "It commits a lease before any request leaves."],
-  effect_committed: ["The receiver writes the expense.", "The delivery key and the expense commit together."],
-  lease_expired: ["The lease runs out.", (who) => `Nothing came back from ${who}, so the sender has to try again.`],
-  duplicate_detected: ["The receiver finds the key.", "It is already there, so nothing new is written."],
-  attempt_recorded: ["Two attempts. One row.", "The sender records success. The ledger never changed."],
+  event_committed: ["The sender stores the event", "It commits the event first, so a crash from here on cannot lose it."],
+  claim_committed: [(who) => `${who} takes the delivery`, "It commits a lease before any request leaves."],
+  effect_committed: ["The receiver writes the expense", "The delivery key and the expense commit together."],
+  lease_expired: ["The lease runs out", (who) => `Nothing came back from ${who}, so the sender has to try again.`],
+  duplicate_detected: ["The receiver finds the key", "The key is already there, so nothing new is written."],
+  attempt_recorded: ["Two attempts left one row in the ledger", "The sender records success, and the ledger never changed."],
 };
 const who = (detail) => detail.split(" ")[0];
 function crashScene(trace) {
   const row = { event: trace.event_id, amount: money(trace.amount_cents), by: "attempt 1" };
-  const moments = [{ title: "One expense on its way to the ledger.", text: "Press Play. A test kills the worker partway through.", at: 0, sender: "nothing yet", attempts: 0, rows: [] }];
+  const moments = [{ title: "One expense is on its way to the ledger", text: "Press Play, and a test will kill the worker partway through.", at: 0, sender: "nothing yet", attempts: 0, rows: [] }];
   const state = { sender: "nothing yet", attempts: 0, rows: [] };
   let holder = "the worker";
   for (const step of trace.steps) {
@@ -561,8 +561,8 @@ function crashScene(trace) {
     });
     if (step.action === "effect_committed") {
       moments.push({
-        title: "The acknowledgement is lost.",
-        text: `The receiver answered, then the test killed ${holder} before it could report. The ledger has the expense. The sender does not know.`,
+        title: "The acknowledgement is lost",
+        text: `The receiver answered, but the test killed ${holder} before it could report, so the sender does not know the expense exists.`,
         at: null, ...state, lost: true,
       });
     }
@@ -571,7 +571,7 @@ function crashScene(trace) {
   const second = who(trace.steps.findLast((s) => s.action === "claim_committed").detail);
   const BREAK = 23;
   return {
-    name: "Crash", source: "Recorded. The test killed a worker on purpose.", book: "ledger",
+    name: "Crash", source: "Recorded run with a worker killed on purpose", book: "ledger",
     moments, stop: 4, durations: [450, 800, 800, 1200, 1500, 800, 800, 1200],
     plan: {
       lines: [
@@ -617,13 +617,13 @@ function naiveScene(naive) {
   const sender = "not in this log";
   const BREAK = 76;
   return {
-    name: "Naive receiver", source: "Recorded. A dropped response, no worker killed.", book: "ledger",
+    name: "Naive receiver", source: "Recorded run with one dropped response and no worker killed", book: "ledger",
     moments: [
-      { title: "The same lost answer, with no key check.", text: "This receiver writes a row for every request. The test drops one response. No worker is killed.", at: 0, sender, attempts: 0, rows: [] },
-      { title: "The event arrives.", text: "The receiver's log counts from here.", at: 0, sender, attempts: 0, rows: [] },
-      { title: "The receiver writes the expense.", text: "It does not look at the delivery key.", at: written.offset_ms, sender, attempts: written.attempt, rows: [first] },
-      { title: "The response is dropped.", text: "The row is written, but no answer gets back. To the sender this looks like a failed request.", at: dropped.offset_ms, sender, attempts: written.attempt, rows: [first] },
-      { title: "Two attempts. Two rows.", text: `The retry wrote the same expense again. The test planted ${naive.planted} of these and found all ${naive.planted}.`, at: again.offset_ms, sender, attempts: again.attempt, rows: [first, second] },
+      { title: "The same lost answer, with no key check", text: "This receiver writes a row for every request, and the test drops one response without killing a worker.", at: 0, sender, attempts: 0, rows: [] },
+      { title: "The event arrives", text: "The receiver's log counts from here.", at: 0, sender, attempts: 0, rows: [] },
+      { title: "The receiver writes the expense", text: "It does not look at the delivery key.", at: written.offset_ms, sender, attempts: written.attempt, rows: [first] },
+      { title: "The response is dropped", text: "The row is written, but the answer never gets back, so the sender sees a failed request.", at: dropped.offset_ms, sender, attempts: written.attempt, rows: [first] },
+      { title: "Two attempts left two rows in the ledger", text: `The retry wrote the same expense again, and the test found all ${naive.planted} of the repeats it planted.`, at: again.offset_ms, sender, attempts: again.attempt, rows: [first, second] },
     ],
     stop: 3, durations: [450, 1200, 900, 1500],
     plan: {
@@ -709,7 +709,7 @@ function showMoment(index) {
   slot($("slot1"), moment.rows[1]);
   $("senderState").textContent = moment.sender;
   $("attempts").textContent = moment.attempts;
-  $("status").textContent = `${moment.title} ${count} ${count === 1 ? "ledger row" : "ledger rows"}.`;
+  $("status").textContent = `${moment.title}, ${count} ${count === 1 ? "ledger row" : "ledger rows"}`;
 }
 function render() {
   const index = Math.floor(t);
@@ -722,7 +722,7 @@ function render() {
   if (text !== shownClock) { shownClock = text; $("clock").textContent = text; }
   scrub.value = t;
   timeline.style.setProperty("--at", t / scene.T);
-  scrub.setAttribute("aria-valuetext", `${scene.moments[index].title} ${text}`);
+  scrub.setAttribute("aria-valuetext", `${scene.moments[index].title}, ${text}`);
   buttons();
 }
 function halt() {

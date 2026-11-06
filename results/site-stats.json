@@ -20,7 +20,7 @@
       ],
       [
         "2,000 per second, ten minute runs",
-        "Failed twice. p99 1,099 to 1,497 ms, then 378 to 3,881 ms. All 7,200,000 effects reconciled.",
+        "Failed twice, with a p99 of 1,099 to 1,497 ms and then 378 to 3,881 ms, though all 7,200,000 effects reconciled",
         "250 ms budget"
       ],
       [
@@ -40,7 +40,7 @@
       ],
       [
         "Slow destination isolation",
-        "Retest passed: p99 58 to 67 ms. First attempt failed: 59 to 642 ms.",
+        "Passed its retest at a p99 of 58 to 67 ms, after the first attempt failed at 59 to 642 ms",
         "Limits off: 34,899 to 36,945 ms"
       ],
       [
@@ -85,7 +85,9 @@
   "scope": [
     "All numbers were measured on one Apple M5 Pro Mac, with PostgreSQL 17 flushing the drive cache on every commit. The load generator, engine, receiver and databases shared that machine and one drive, and other work ran on it too.",
     "The cause of the stalls at 2,000 per second was not found. A drive flush probe stayed fast through the retest, so a slow flush does not explain them there. A rate that holds for 60 seconds and fails at ten minutes is a real finding.",
-    "The fault model is process death, lost responses and pauses. Power loss was not tested, and the failovers share one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared 2 second detection time."
+    "The fault model is process death, lost responses and pauses. Power loss was not tested, and the failovers share one machine, so they say nothing about a data centre failure. Promotion is triggered by the harness, with a declared 2 second detection time.",
+    "The crash and the naive case are different faults, so their retry times should not be compared. The naive case is the receiver's log for one event, which holds no worker or sender times, and its amount comes from the run's seed.",
+    "The kill has no timestamp of its own, so the lost acknowledgement sits between two recorded steps. The stage stretches the first milliseconds and shortens the waits, while its clock shows recorded time."
   ],
   "control_repeats": 50,
   "provenance": "This is an offline replay of recorded runs. All data is synthetic."

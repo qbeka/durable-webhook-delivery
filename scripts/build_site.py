@@ -89,7 +89,7 @@ def main() -> None:
         "/*FONT_MEDIUM*/": font("Geist-Medium.woff2"),
         "/*DATA*/": payload,
         "<!--EVIDENCE_INTRO-->": escape(stats["evidence_intro"]),
-        "<!--RESULTS-->": "".join(row(claim, result, f" {control}.") for claim, result, control in stats["evidence"]["rows"]),
+        "<!--RESULTS-->": "".join(row(claim, result, control) for claim, result, control in stats["evidence"]["rows"]),
         "<!--OUTAGE_INTRO-->": escape(stats["outage_intro"]),
         "<!--DESIGN-->": "".join(row(item["key"], item["title"], f" {item['text']}") for item in stats["design"]),
         "<!--LIMITS-->": "".join(f"<li>{escape(text)}</li>" for text in [*stats["scope"], stats["provenance"]]),
