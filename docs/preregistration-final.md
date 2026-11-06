@@ -5,9 +5,9 @@ quoted number. That first run is kept in `results/published` and `results/failov
 
 ## Why there is a second run
 
-An independent review of the first run found a code defect and several claims stronger
-than their evidence. No defect touched delivery safety, but the code changed, so a number
-measured before the change should not be quoted after it. `docs/reviews.md` has the list.
+Rechecking the first run found a code defect and several claims stronger than their
+evidence. No defect touched delivery safety, but the code changed, so a number measured
+before the change should not be quoted after it.
 
 ## What changed from the earlier plans
 

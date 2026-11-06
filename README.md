@@ -192,8 +192,8 @@ The full results are in [docs/report.md](docs/report.md). The first preregistere
 - The TLA+ model checks the design, not the Go code. Safety has a finite bound of 3 workers, 5
   faults and 2 replays. Liveness has 2 workers, 3 faults and no replays. The state count follows
   from those bounds, so a larger number would not mean a safer design.
-- The mutants are targeted at rules this project names. An independent reviewer's 15 extra mutants
-  survived 11 times at first. Tests now cover the survivors it named, but 39 of 39 is not a measure
+- The mutants are targeted at rules this project names. A later batch of 15 extra mutants
+  survived 11 times at first. Tests now cover the named survivors, but 39 of 39 is not a measure
   of all possible bugs.
 - No ordering is guaranteed. Secrets are stored in plain text in the local database.
 
@@ -205,7 +205,6 @@ The full results are in [docs/report.md](docs/report.md). The first preregistere
 | [docs/architecture.md](docs/architecture.md) | Each decision and the alternative it rejected |
 | [docs/report.md](docs/report.md) | Every result |
 | [docs/experiments.md](docs/experiments.md) | What was tried, including what failed |
-| [docs/reviews.md](docs/reviews.md) | Findings from independent reviews |
 | [docs/preregistration-final.md](docs/preregistration-final.md) | The plan frozen before the final run |
 | [docs/api.md](docs/api.md), [docs/openapi.yaml](docs/openapi.yaml) | The API |
 | [spec/DeliveryLease.tla](spec/DeliveryLease.tla) | The TLA+ model |

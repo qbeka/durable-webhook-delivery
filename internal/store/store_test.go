@@ -265,8 +265,8 @@ func TestSubscriptionChangesAreOrderedAgainstIngress(t *testing.T) {
 	}
 
 	// A change must not starve behind a stream of ingress. Row locks allowed that:
-	// FOR SHARE lockers overtake a waiting FOR UPDATE, and an independent reviewer
-	// measured waits of 30.7 seconds. The advisory lock queues fairly.
+	// FOR SHARE lockers overtake a waiting FOR UPDATE, and waits of 30.7 seconds
+	// were measured. The advisory lock queues fairly.
 	var slowestChange time.Duration
 	for round := range 40 {
 		changeStarted := time.Now()
