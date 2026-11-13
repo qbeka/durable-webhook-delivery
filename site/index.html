@@ -989,6 +989,8 @@ plots.addEventListener("pointermove", (event) => {
 });
 motion.addEventListener("change", () => { if (motion.matches) halt(); render(); });
 select(scenes[0]);
+// The page opens paused at the kill, so the first screen is the middle of the story.
+seek(scenes[0].stop);
 })();
 </script>
 </body>
