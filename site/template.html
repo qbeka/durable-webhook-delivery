@@ -182,7 +182,8 @@ body {
 :root {
   --clay: #c4623a;
   --clay-ink: #9a4722;
-  --stage-height: clamp(452px, calc(100svh - 176px), 548px);
+  /* Tall enough for both lanes and the story, so the story sits just under them. */
+  --stage-height: clamp(452px, calc(100svh - 176px), 496px);
 }
 @media (max-width: 479px) {
   .title h1 { font-size: 30px; line-height: 34px; }
