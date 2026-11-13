@@ -95,7 +95,7 @@ body {
   min-height: var(--control-height); padding: 0 11px; margin: 0;
   border: 1px solid transparent; border-radius: var(--radius-control);
   background: transparent; color: var(--ink);
-  font: 400 13px/16px var(--sans); letter-spacing: -0.003em; white-space: nowrap; text-decoration: none;
+  font: 400 14px/18px var(--sans); letter-spacing: -0.003em; white-space: nowrap; text-decoration: none;
   cursor: pointer; user-select: none; -webkit-user-select: none;
   -webkit-tap-highlight-color: transparent; touch-action: manipulation;
   transition: background-color .12s, color .12s, border-color .12s;
@@ -120,11 +120,11 @@ body {
   .control.outline:active { background: var(--wash-strong); }
 }
 
-.control.primary { background: var(--ink); color: #fff; font-weight: 500; padding: 0 14px; }
-.control.primary:active { background: #000; }
+.control.primary { background: var(--forest); color: var(--paper); font-weight: 500; padding: 0 14px; }
+.control.primary:active { background: var(--forest-pressed); }
 @media (hover: hover) {
-  .control.primary:hover { background: #2a2d2a; color: #fff; }
-  .control.primary:active { background: #000; color: #fff; }
+  .control.primary:hover { background: var(--forest-hover); color: var(--paper); }
+  .control.primary:active { background: var(--forest-pressed); color: var(--paper); }
 }
 
 /* Disabled stays focusable, so that a key press never drops focus. */
@@ -135,10 +135,10 @@ body {
   .control[aria-disabled='true']:active { background: transparent; color: var(--faint); }
 }
 .control.primary[aria-busy='true'],
-.control.primary[aria-busy='true']:active { background: #2a2d2a; color: #ffffffd9; cursor: progress; }
+.control.primary[aria-busy='true']:active { background: var(--forest-hover); color: #ffffffd9; cursor: progress; }
 @media (hover: hover) {
   .control.primary[aria-busy='true']:hover,
-  .control.primary[aria-busy='true']:active { background: #2a2d2a; color: #ffffffd9; }
+  .control.primary[aria-busy='true']:active { background: var(--forest-hover); color: #ffffffd9; }
 }
 
 /* The demo has one boundary. Anything inside it uses hairlines. */
@@ -157,7 +157,7 @@ body {
 /* The reading column under the stage */
 .reading { max-width: var(--reading-width); margin: 72px 0 0; scroll-margin-top: 32px; }
 .reading h2 { margin: 0 0 12px; font: 400 26px/32px var(--serif); letter-spacing: -0.02em; }
-.reading h3 { margin: 44px 0 10px; font: 500 13px/20px var(--sans); color: var(--ink); }
+.reading h3 { margin: 44px 0 10px; font: 500 14px/20px var(--sans); color: var(--ink); }
 .prose { margin: 0 0 12px; font: 400 17px/27px var(--serif); color: var(--body); letter-spacing: -0.005em; }
 .results { margin: 0; border-top: 1px solid var(--line); }
 .results > div {
@@ -182,11 +182,11 @@ body {
 :root {
   --clay: #c4623a;
   --clay-ink: #9a4722;
-  --stage-height: clamp(452px, calc(100svh - 176px), 548px);
+  /* Tall enough for both lanes and the story, so the story sits just under them. */
+  --stage-height: clamp(452px, calc(100svh - 176px), 496px);
 }
 @media (max-width: 479px) {
   .title h1 { font-size: 30px; line-height: 34px; }
-  .title p { font-size: 16px; line-height: 22px; }
   .title { margin-bottom: 12px; }
 }
 @media (max-width: 359px) {
@@ -199,7 +199,7 @@ body {
 .deck { display: grid; grid-template-columns: minmax(0, 1fr) 288px; grid-template-rows: auto minmax(0, 1fr) auto; height: 100%; }
 .head { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 8px 16px 8px 8px; border-bottom: 1px solid var(--line); }
 .scenes { display: flex; gap: 2px; }
-.source { margin: 0; font-size: 13px; line-height: 16px; color: var(--muted); text-align: right; }
+.source { margin: 0; font-size: 14px; line-height: 18px; color: var(--muted); text-align: right; }
 .view { grid-column: 1; min-width: 0; min-height: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; padding: 20px 24px 16px; }
 .book { grid-column: 2; grid-row: 2; min-height: 0; padding: 20px 20px 16px; border-left: 1px solid var(--line); }
 .transport { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; padding: 8px 16px 8px 8px; border-top: 1px solid var(--line); }
@@ -217,8 +217,8 @@ body {
 
 /* The path: two attempts, one above the other. */
 .lanes { display: block; width: 100%; height: 100%; min-height: 0; overflow: visible; font-family: var(--sans); }
-.lanes text { font-size: 12px; fill: var(--muted); }
-.lanes .station { font-size: 13px; fill: var(--ink); }
+.lanes text { font-size: 14px; fill: var(--muted); }
+.lanes .station { font-size: 14px; fill: var(--ink); }
 .lanes .attempt { fill: var(--muted); }
 .lanes .clay { fill: var(--clay-ink); }
 .guide { stroke: var(--line); stroke-width: 1; }
@@ -240,17 +240,17 @@ body {
 .plots { position: relative; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) 18px; min-height: 0; cursor: ew-resize; touch-action: pan-y; user-select: none; -webkit-user-select: none; --at: 0; }
 .plots[hidden] { display: none; }
 .band { position: absolute; top: 0; bottom: 18px; background: var(--wash); }
-.band span { position: absolute; bottom: 2px; right: 6px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.band span { position: absolute; bottom: 2px; right: 6px; font-size: 14px; line-height: 18px; color: var(--muted); }
 .plot { position: relative; min-height: 0; border-bottom: 1px solid var(--line-strong); }
 .plot + .plot { margin-top: 6px; }
 .plot svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .plot path { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
 .plot .past { opacity: .24; }
 .plot .now { clip-path: inset(-2px calc((1 - var(--at)) * 100%) -2px -2px); }
-.plot .name { position: absolute; top: 0; left: 0; margin: 0; font: 400 12px/16px var(--sans); color: var(--muted); }
+.plot .name { position: absolute; top: 0; left: 0; margin: 0; font: 400 14px/18px var(--sans); color: var(--muted); }
 .plot .name i { display: inline-block; width: 12px; height: 2px; margin: 0 5px 0 10px; vertical-align: middle; }
-.plot .scale { position: absolute; top: 0; right: 0; font-size: 12px; line-height: 16px; color: var(--muted); }
-.axis { position: relative; font-size: 12px; line-height: 18px; color: var(--muted); }
+.plot .scale { position: absolute; top: 0; right: 0; font-size: 14px; line-height: 18px; color: var(--muted); }
+.axis { position: relative; font-size: 14px; line-height: 18px; color: var(--muted); }
 .axis span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
 .axis span:first-child { transform: none; }
 .axis span:last-child { transform: translateX(-100%); }
@@ -261,7 +261,7 @@ body {
 .tally b { font: 400 56px/60px var(--serif); letter-spacing: -0.03em; color: var(--ink); transition: color .2s; }
 .tally.twice b { color: var(--clay-ink); }
 .ledger { margin: 12px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
-.ledger li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; height: 44px; border-bottom: 1px dashed var(--line-strong); font-size: 13px; line-height: 18px; }
+.ledger li { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; height: 44px; border-bottom: 1px dashed var(--line-strong); font-size: 14px; line-height: 20px; }
 .ledger li.full { border-bottom-style: solid; border-bottom-color: var(--line); }
 .ledger li > span { display: block; transition: opacity .18s, transform .18s; }
 .ledger li:not(.full) > span { opacity: 0; transform: translateY(4px); }
@@ -270,8 +270,8 @@ body {
 .ledger li.again .amount, .ledger li.again small { color: var(--clay-ink); }
 .facts { margin: 12px 0 0; }
 .facts > div { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
-.facts dt { font-size: 13px; line-height: 20px; color: var(--muted); }
-.facts dd { margin: 0; font-size: 13px; line-height: 20px; font-weight: 500; color: var(--ink); text-align: right; }
+.facts dt { font-size: 14px; line-height: 20px; color: var(--muted); }
+.facts dd { margin: 0; font-size: 14px; line-height: 20px; font-weight: 500; color: var(--ink); text-align: right; }
 
 /* The transport. The main button keeps one width through all its labels. */
 #main { display: inline-grid; flex: none; justify-items: center; min-width: 68px; }
@@ -301,35 +301,35 @@ body {
   #scrub:hover::-webkit-slider-thumb { background: var(--wash-strong); }
   #scrub:active::-webkit-slider-thumb { background: var(--forest); }
 }
-.clock { flex: none; margin: 0; min-width: 136px; font-size: 13px; line-height: 16px; color: var(--muted); text-align: right; white-space: nowrap; }
+.clock { flex: none; margin: 0; min-width: 148px; font-size: 14px; line-height: 18px; color: var(--muted); text-align: right; white-space: nowrap; }
 .clock output { color: var(--ink); }
 
 @container (max-width: 860px) {
   .story { height: 116px; }
 }
 @container (max-width: 639px) {
-  .story { height: 86px; padding-top: 6px; }
+  .story { height: 96px; padding-top: 6px; }
   .story h2 { font-size: 17px; line-height: 22px; }
-  .story p { font-size: 13px; line-height: 18px; }
-  .book { display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: 14px; align-items: center; }
-  .tally { display: block; grid-row: 1 / 3; width: 48px; font-size: 11px; line-height: 13px; }
-  .tally b { display: block; font-size: 36px; line-height: 38px; }
-  .tally span { display: block; }
-  .ledger { margin: 0; border-top: 0; }
-  .ledger li { height: 20px; border-bottom: 0; font-size: 12px; white-space: nowrap; }
+  .story p { line-height: 20px; }
+  .lanes text { font-size: 12px; }
+  .lanes .station { font-size: 14px; }
+  .band span, .plot .name, .plot .scale, .axis { font-size: 12px; line-height: 16px; }
+  /* The count reads on one line, the facts sit beside it and the rows run underneath. */
+  .book { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 14px; row-gap: 2px; align-items: center; }
+  .tally { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+  .tally b { font-size: 32px; line-height: 36px; }
+  .ledger { grid-column: 1 / -1; grid-row: 2; margin: 0; border-top: 0; }
+  .ledger li { height: 20px; border-bottom: 0; white-space: nowrap; }
   .ledger li > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .ledger small { display: inline; margin-left: 6px; }
-  .facts { display: flex; justify-content: space-between; gap: 12px; margin: 2px 0 0; }
-  .facts > div { justify-content: flex-start; gap: 6px; padding: 0; }
-  .facts dt, .facts dd { font-size: 12px; line-height: 18px; white-space: nowrap; }
+  .facts { grid-column: 2; grid-row: 1; margin: 0; }
+  .facts > div { gap: 10px; padding: 0; }
+  .facts dt, .facts dd { white-space: nowrap; }
   .facts .wide { display: none; }
-  #meter .tally { width: 64px; }
-  #meter .facts { display: block; margin: 0; grid-row: 1 / 3; }
-  #meter .facts > div { justify-content: space-between; }
   .plot .name .wide { display: none; }
   .seek { display: block; margin-left: 4px; }
   .timeline { height: 28px; }
-  .clock { min-width: 0; font-size: 12px; line-height: 14px; text-align: left; }
+  .clock { min-width: 0; line-height: 16px; text-align: left; }
   #scrub::-webkit-slider-thumb { margin-top: 7px; }
 }
 
@@ -353,7 +353,7 @@ body {
 @media (hover: hover) { .more summary:hover { color: var(--ink); } }
 .more .results { border-top: 0; }
 .table-wrap { max-height: 280px; overflow: auto; border-bottom: 1px solid var(--line); }
-.data { width: 100%; border-collapse: collapse; font-size: 13px; line-height: 20px; color: var(--body); }
+.data { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; color: var(--body); }
 .data th { position: sticky; top: 0; padding: 8px 12px 8px 0; background: var(--paper); box-shadow: inset 0 -1px var(--line); font-weight: 400; color: var(--muted); text-align: right; white-space: nowrap; }
 .data td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--line); text-align: right; }
 .data th:first-child, .data td:first-child { text-align: left; }
@@ -367,7 +367,7 @@ body {
 <body>
 <div class="shell">
   <header class="topbar">
-    <a class="quiet back" href="https://www.qendrimbeka.com/">
+    <a class="quiet back" href="/#projects">
       <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       Back
     </a>
@@ -380,7 +380,6 @@ body {
   <main>
     <header class="title">
       <h1>Durable Webhook Delivery</h1>
-      <p>A crash should not add the same expense twice</p>
     </header>
 
     <section class="stage" id="stage" aria-label="Recorded replay of one expense">
@@ -484,7 +483,7 @@ body {
     </section>
 
     <footer class="page-end">
-      <a class="quiet back" href="https://www.qendrimbeka.com/">
+      <a class="quiet back" href="/#projects">
         <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 4L6 8L10 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Back
       </a>
@@ -493,6 +492,13 @@ body {
   </main>
 </div>
 
+<script>
+// A story page sends ?from=<slug>, so Back returns to that story.
+(() => {
+  const from = new URLSearchParams(location.search).get("from");
+  if (from && /^[a-z0-9-]+$/.test(from)) for (const link of document.querySelectorAll("a.back")) link.href = `/work/${from}`;
+})();
+</script>
 <script id="data" type="application/json">{"trace":{"steps":[{"at":"2026-11-04T18:15:39.389191-06:00","actor":"engine","action":"event_committed","detail":"event evt-2026-266 and its delivery committed, then ingress answered 202","offset_ms":0.0},{"at":"2026-11-04T18:15:39.399573-06:00","actor":"worker","action":"claim_committed","detail":"worker-7 committed lease e9922f45 for attempt 1 before sending","offset_ms":10.382000000000001},{"at":"2026-11-04T18:15:39.420842-06:00","actor":"receiver","action":"effect_committed","detail":"attempt 1: key and expense committed together","offset_ms":31.651},{"at":"2026-11-04T18:15:42.475495-06:00","actor":"engine","action":"lease_expired","detail":"lease e9922f45 expired with no report from worker-7","offset_ms":3086.304},{"at":"2026-11-04T18:15:46.094411-06:00","actor":"worker","action":"claim_committed","detail":"worker-17 committed lease b975bc0c for attempt 2 before sending","offset_ms":6705.219999999999},{"at":"2026-11-04T18:15:46.105023-06:00","actor":"receiver","action":"duplicate_detected","detail":"attempt 2: key already present, no new effect","offset_ms":6715.831999999999},{"at":"2026-11-04T18:15:46.105504-06:00","actor":"worker","action":"attempt_recorded","detail":"attempt 2 recorded as success with status 200","offset_ms":6716.313}],"event_id":"evt-2026-266","amount_cents":92269,"ledger_rows":1},"naive":{"source":"results/final/faults/control_naive/effects-healthy.csv","event_id":"evt-2026-0","delivery_key":"dk_ba7ed0c2d9d9221611271cbb4b0a4730","amount_cents":29278,"moments":[{"offset_ms":41.768148,"attempt":1,"outcome":"applied"},{"offset_ms":41.772148,"attempt":1,"outcome":"dropped_response"},{"offset_ms":81490.920148,"attempt":2,"outcome":"applied"}],"planted":50},"outage":{"start_seconds":20.0,"end_seconds":80.0,"timeline":[{"offset_seconds":0.501864,"healthy_queue":14,"failing_queue":11,"healthy_p50_ms":37.335369,"healthy_p99_ms":52.085575,"healthy_count":308},{"offset_seconds":1.5018639999999999,"healthy_queue":13,"failing_queue":10,"healthy_p50_ms":39.687126,"healthy_p99_ms":54.519021,"healthy_count":289},{"offset_seconds":2.501864,"healthy_queue":22,"failing_queue":17,"healthy_p50_ms":40.085705,"healthy_p99_ms":54.232606,"healthy_count":303},{"offset_seconds":3.501864,"healthy_queue":9,"failing_queue":11,"healthy_p50_ms":35.848796,"healthy_p99_ms":47.044086,"healthy_count":279},{"offset_seconds":4.501864,"healthy_queue":14,"failing_queue":13,"healthy_p50_ms":34.82227,"healthy_p99_ms":47.87744,"healthy_count":292},{"offset_seconds":5.501864,"healthy_queue":13,"failing_queue":18,"healthy_p50_ms":39.724691,"healthy_p99_ms":61.381656,"healthy_count":301},{"offset_seconds":6.501864,"healthy_queue":14,"failing_queue":16,"healthy_p50_ms":37.386847,"healthy_p99_ms":53.516138,"healthy_count":310},{"offset_seconds":7.501864,"healthy_queue":12,"failing_queue":22,"healthy_p50_ms":37.286929,"healthy_p99_ms":47.868582,"healthy_count":296},{"offset_seconds":8.501864,"healthy_queue":10,"failing_queue":7,"healthy_p50_ms":35.863577,"healthy_p99_ms":51.197463,"healthy_count":285},{"offset_seconds":9.501864,"healthy_queue":14,"failing_queue":14,"healthy_p50_ms":38.875825,"healthy_p99_ms":57.918104,"healthy_count":274},{"offset_seconds":10.501864,"healthy_queue":20,"failing_queue":17,"healthy_p50_ms":35.044911,"healthy_p99_ms":45.699347,"healthy_count":318},{"offset_seconds":11.501864,"healthy_queue":22,"failing_queue":10,"healthy_p50_ms":35.552752,"healthy_p99_ms":46.603733,"healthy_count":300},{"offset_seconds":12.501864,"healthy_queue":17,"failing_queue":9,"healthy_p50_ms":37.472558,"healthy_p99_ms":52.943306,"healthy_count":299},{"offset_seconds":13.501864,"healthy_queue":12,"failing_queue":13,"healthy_p50_ms":36.095729,"healthy_p99_ms":51.949525,"healthy_count":294},{"offset_seconds":14.501864,"healthy_queue":18,"failing_queue":15,"healthy_p50_ms":35.506344,"healthy_p99_ms":49.702826,"healthy_count":266},{"offset_seconds":15.501864,"healthy_queue":14,"failing_queue":21,"healthy_p50_ms":35.607624,"healthy_p99_ms":49.338076,"healthy_count":297},{"offset_seconds":16.501864,"healthy_queue":13,"failing_queue":14,"healthy_p50_ms":37.749582,"healthy_p99_ms":53.803027,"healthy_count":286},{"offset_seconds":17.501864,"healthy_queue":13,"failing_queue":16,"healthy_p50_ms":35.253771,"healthy_p99_ms":47.532704,"healthy_count":277},{"offset_seconds":18.501864,"healthy_queue":12,"failing_queue":10,"healthy_p50_ms":35.596987,"healthy_p99_ms":45.512768,"healthy_count":313},{"offset_seconds":19.501864,"healthy_queue":20,"failing_queue":8,"healthy_p50_ms":38.292379,"healthy_p99_ms":53.034613,"healthy_count":309},{"offset_seconds":20.501864,"healthy_queue":13,"failing_queue":160,"healthy_p50_ms":34.432053,"healthy_p99_ms":46.270861,"healthy_count":295},{"offset_seconds":21.501864,"healthy_queue":9,"failing_queue":463,"healthy_p50_ms":34.309114,"healthy_p99_ms":48.69251,"healthy_count":289},{"offset_seconds":22.501864,"healthy_queue":11,"failing_queue":746,"healthy_p50_ms":35.190611,"healthy_p99_ms":49.766392,"healthy_count":267},{"offset_seconds":23.501864,"healthy_queue":9,"failing_queue":1042,"healthy_p50_ms":35.275609,"healthy_p99_ms":50.13215,"healthy_count":266},{"offset_seconds":24.501864,"healthy_queue":11,"failing_queue":1362,"healthy_p50_ms":35.025362,"healthy_p99_ms":51.062017,"healthy_count":308},{"offset_seconds":25.501864,"healthy_queue":14,"failing_queue":1682,"healthy_p50_ms":34.380507,"healthy_p99_ms":47.423636,"healthy_count":310},{"offset_seconds":26.501864,"healthy_queue":7,"failing_queue":2007,"healthy_p50_ms":36.899387,"healthy_p99_ms":51.304033,"healthy_count":280},{"offset_seconds":27.501864,"healthy_queue":9,"failing_queue":2334,"healthy_p50_ms":38.461139,"healthy_p99_ms":54.509985,"healthy_count":266},{"offset_seconds":28.501864,"healthy_queue":12,"failing_queue":2614,"healthy_p50_ms":36.445568,"healthy_p99_ms":51.301028,"healthy_count":307},{"offset_seconds":29.501864,"healthy_queue":4,"failing_queue":2892,"healthy_p50_ms":36.442567,"healthy_p99_ms":52.598337,"healthy_count":272},{"offset_seconds":30.501864,"healthy_queue":8,"failing_queue":3199,"healthy_p50_ms":39.114995,"healthy_p99_ms":59.34383,"healthy_count":290},{"offset_seconds":31.501864,"healthy_queue":17,"failing_queue":3509,"healthy_p50_ms":36.427655,"healthy_p99_ms":50.337283,"healthy_count":302},{"offset_seconds":32.501864,"healthy_queue":13,"failing_queue":3822,"healthy_p50_ms":36.503388,"healthy_p99_ms":51.050916,"healthy_count":291},{"offset_seconds":33.501864,"healthy_queue":16,"failing_queue":4128,"healthy_p50_ms":37.586755,"healthy_p99_ms":50.244131,"healthy_count":301},{"offset_seconds":34.501864,"healthy_queue":19,"failing_queue":4409,"healthy_p50_ms":40.01291,"healthy_p99_ms":57.731248,"healthy_count":319},{"offset_seconds":35.501864,"healthy_queue":10,"failing_queue":4701,"healthy_p50_ms":37.068462,"healthy_p99_ms":54.350582,"healthy_count":304},{"offset_seconds":36.501864,"healthy_queue":7,"failing_queue":4997,"healthy_p50_ms":34.127233,"healthy_p99_ms":49.371551,"healthy_count":322},{"offset_seconds":37.501864,"healthy_queue":15,"failing_queue":5279,"healthy_p50_ms":40.420829,"healthy_p99_ms":62.549064,"healthy_count":320},{"offset_seconds":38.501864,"healthy_queue":16,"failing_queue":5599,"healthy_p50_ms":33.173506,"healthy_p99_ms":51.884066,"healthy_count":276},{"offset_seconds":39.501864,"healthy_queue":20,"failing_queue":5892,"healthy_p50_ms":33.863426,"healthy_p99_ms":46.768395,"healthy_count":319},{"offset_seconds":40.501864,"healthy_queue":16,"failing_queue":6148,"healthy_p50_ms":33.353188,"healthy_p99_ms":45.105862,"healthy_count":291},{"offset_seconds":41.501864,"healthy_queue":9,"failing_queue":6461,"healthy_p50_ms":37.992598,"healthy_p99_ms":67.730752,"healthy_count":299},{"offset_seconds":42.501864,"healthy_queue":11,"failing_queue":6756,"healthy_p50_ms":37.479946,"healthy_p99_ms":51.630202,"healthy_count":303},{"offset_seconds":43.501864,"healthy_queue":10,"failing_queue":7066,"healthy_p50_ms":34.280359,"healthy_p99_ms":55.811598,"healthy_count":276},{"offset_seconds":44.501864,"healthy_queue":15,"failing_queue":7366,"healthy_p50_ms":36.51529,"healthy_p99_ms":51.978724,"healthy_count":279},{"offset_seconds":45.501864,"healthy_queue":22,"failing_queue":7633,"healthy_p50_ms":44.897899,"healthy_p99_ms":78.072443,"healthy_count":292},{"offset_seconds":46.501864,"healthy_queue":18,"failing_queue":7956,"healthy_p50_ms":33.597372,"healthy_p99_ms":48.303313,"healthy_count":299},{"offset_seconds":47.501864,"healthy_queue":9,"failing_queue":8255,"healthy_p50_ms":35.555788,"healthy_p99_ms":49.058459,"healthy_count":302},{"offset_seconds":48.501864,"healthy_queue":20,"failing_queue":8554,"healthy_p50_ms":39.449303,"healthy_p99_ms":58.305619,"healthy_count":282},{"offset_seconds":49.501864,"healthy_queue":11,"failing_queue":8822,"healthy_p50_ms":36.314654,"healthy_p99_ms":48.772234,"healthy_count":291},{"offset_seconds":50.501864,"healthy_queue":16,"failing_queue":9122,"healthy_p50_ms":34.12189,"healthy_p99_ms":51.865608,"healthy_count":303},{"offset_seconds":51.501864,"healthy_queue":24,"failing_queue":9406,"healthy_p50_ms":35.232634,"healthy_p99_ms":48.536976,"healthy_count":315},{"offset_seconds":52.501864,"healthy_queue":12,"failing_queue":9682,"healthy_p50_ms":35.418002,"healthy_p99_ms":48.890115,"healthy_count":285},{"offset_seconds":53.501864,"healthy_queue":6,"failing_queue":9966,"healthy_p50_ms":32.615252,"healthy_p99_ms":49.418114,"healthy_count":257},{"offset_seconds":54.501864,"healthy_queue":13,"failing_queue":10255,"healthy_p50_ms":33.978147,"healthy_p99_ms":48.902461,"healthy_count":288},{"offset_seconds":55.501864,"healthy_queue":14,"failing_queue":10542,"healthy_p50_ms":40.137224,"healthy_p99_ms":65.13552,"healthy_count":292},{"offset_seconds":56.501864,"healthy_queue":15,"failing_queue":10840,"healthy_p50_ms":38.825174,"healthy_p99_ms":55.08038,"healthy_count":278},{"offset_seconds":57.502864,"healthy_queue":3,"failing_queue":11173,"healthy_p50_ms":38.438278,"healthy_p99_ms":55.392859,"healthy_count":301},{"offset_seconds":58.502864,"healthy_queue":15,"failing_queue":11447,"healthy_p50_ms":39.144674,"healthy_p99_ms":56.009601,"healthy_count":295},{"offset_seconds":59.502864,"healthy_queue":20,"failing_queue":11781,"healthy_p50_ms":40.697259,"healthy_p99_ms":66.639414,"healthy_count":316},{"offset_seconds":60.502864,"healthy_queue":17,"failing_queue":12074,"healthy_p50_ms":39.44326,"healthy_p99_ms":58.639524,"healthy_count":332},{"offset_seconds":61.502864,"healthy_queue":15,"failing_queue":12367,"healthy_p50_ms":37.182673,"healthy_p99_ms":54.879654,"healthy_count":311},{"offset_seconds":62.502864,"healthy_queue":22,"failing_queue":12676,"healthy_p50_ms":40.9778,"healthy_p99_ms":60.956382,"healthy_count":323},{"offset_seconds":63.502864,"healthy_queue":12,"failing_queue":12989,"healthy_p50_ms":41.692558,"healthy_p99_ms":65.151964,"healthy_count":313},{"offset_seconds":64.502864,"healthy_queue":14,"failing_queue":13272,"healthy_p50_ms":39.4187,"healthy_p99_ms":63.603411,"healthy_count":266},{"offset_seconds":65.502864,"healthy_queue":16,"failing_queue":13578,"healthy_p50_ms":44.266897,"healthy_p99_ms":70.333985,"healthy_count":296},{"offset_seconds":66.502864,"healthy_queue":12,"failing_queue":13867,"healthy_p50_ms":46.573754,"healthy_p99_ms":74.677125,"healthy_count":288},{"offset_seconds":67.502864,"healthy_queue":19,"failing_queue":14173,"healthy_p50_ms":44.90668,"healthy_p99_ms":69.854021,"healthy_count":316},{"offset_seconds":68.502864,"healthy_queue":11,"failing_queue":14460,"healthy_p50_ms":38.134021,"healthy_p99_ms":52.083227,"healthy_count":274},{"offset_seconds":69.502864,"healthy_queue":4,"failing_queue":14789,"healthy_p50_ms":38.549554,"healthy_p99_ms":55.622772,"healthy_count":317},{"offset_seconds":70.502864,"healthy_queue":14,"failing_queue":15103,"healthy_p50_ms":41.895438,"healthy_p99_ms":60.16812,"healthy_count":292},{"offset_seconds":71.502864,"healthy_queue":18,"failing_queue":15398,"healthy_p50_ms":39.486066,"healthy_p99_ms":63.214749,"healthy_count":293},{"offset_seconds":72.502864,"healthy_queue":11,"failing_queue":15699,"healthy_p50_ms":36.398581,"healthy_p99_ms":51.052977,"healthy_count":307},{"offset_seconds":73.502864,"healthy_queue":11,"failing_queue":15979,"healthy_p50_ms":39.329428,"healthy_p99_ms":55.12266,"healthy_count":304},{"offset_seconds":74.502864,"healthy_queue":13,"failing_queue":16293,"healthy_p50_ms":39.766576,"healthy_p99_ms":61.378197,"healthy_count":298},{"offset_seconds":75.502864,"healthy_queue":10,"failing_queue":16567,"healthy_p50_ms":38.618568,"healthy_p99_ms":56.432643,"healthy_count":321},{"offset_seconds":76.502864,"healthy_queue":8,"failing_queue":16858,"healthy_p50_ms":40.127225,"healthy_p99_ms":63.842063,"healthy_count":280},{"offset_seconds":77.502864,"healthy_queue":13,"failing_queue":17143,"healthy_p50_ms":44.825427,"healthy_p99_ms":64.042521,"healthy_count":318},{"offset_seconds":78.502864,"healthy_queue":10,"failing_queue":17424,"healthy_p50_ms":42.390678,"healthy_p99_ms":63.670759,"healthy_count":308},{"offset_seconds":79.502864,"healthy_queue":16,"failing_queue":17703,"healthy_p50_ms":36.242075,"healthy_p99_ms":51.446431,"healthy_count":281},{"offset_seconds":80.502864,"healthy_queue":11,"failing_queue":18016,"healthy_p50_ms":37.406315,"healthy_p99_ms":54.069445,"healthy_count":301},{"offset_seconds":81.502864,"healthy_queue":25,"failing_queue":18325,"healthy_p50_ms":37.181127,"healthy_p99_ms":52.478826,"healthy_count":313},{"offset_seconds":82.502864,"healthy_queue":13,"failing_queue":18613,"healthy_p50_ms":36.349059,"healthy_p99_ms":49.8456,"healthy_count":288},{"offset_seconds":83.502864,"healthy_queue":13,"failing_queue":18900,"healthy_p50_ms":38.83217,"healthy_p99_ms":54.003486,"healthy_count":319},{"offset_seconds":84.502864,"healthy_queue":12,"failing_queue":17962,"healthy_p50_ms":44.280474,"healthy_p99_ms":65.638592,"healthy_count":265},{"offset_seconds":85.502864,"healthy_queue":18,"failing_queue":17146,"healthy_p50_ms":41.732238,"healthy_p99_ms":69.492043,"healthy_count":321},{"offset_seconds":86.502864,"healthy_queue":14,"failing_queue":16285,"healthy_p50_ms":40.889069,"healthy_p99_ms":65.547007,"healthy_count":279},{"offset_seconds":87.502864,"healthy_queue":8,"failing_queue":15375,"healthy_p50_ms":43.447835,"healthy_p99_ms":63.996398,"healthy_count":292},{"offset_seconds":88.502864,"healthy_queue":11,"failing_queue":14543,"healthy_p50_ms":42.072323,"healthy_p99_ms":59.706768,"healthy_count":283},{"offset_seconds":89.502864,"healthy_queue":8,"failing_queue":13540,"healthy_p50_ms":39.099894,"healthy_p99_ms":53.152869,"healthy_count":296},{"offset_seconds":90.502864,"healthy_queue":13,"failing_queue":12526,"healthy_p50_ms":40.147736,"healthy_p99_ms":55.582685,"healthy_count":264},{"offset_seconds":91.502864,"healthy_queue":25,"failing_queue":11631,"healthy_p50_ms":42.032542,"healthy_p99_ms":63.921326,"healthy_count":296},{"offset_seconds":92.502864,"healthy_queue":15,"failing_queue":10739,"healthy_p50_ms":41.413628,"healthy_p99_ms":56.48011,"healthy_count":312},{"offset_seconds":93.502864,"healthy_queue":16,"failing_queue":9855,"healthy_p50_ms":40.826967,"healthy_p99_ms":53.8882,"healthy_count":275},{"offset_seconds":94.502864,"healthy_queue":11,"failing_queue":8893,"healthy_p50_ms":41.758191,"healthy_p99_ms":55.817419,"healthy_count":306},{"offset_seconds":95.502864,"healthy_queue":22,"failing_queue":8035,"healthy_p50_ms":43.71923,"healthy_p99_ms":62.155178,"healthy_count":305},{"offset_seconds":96.502864,"healthy_queue":13,"failing_queue":7164,"healthy_p50_ms":43.537302,"healthy_p99_ms":63.630583,"healthy_count":328},{"offset_seconds":97.502864,"healthy_queue":8,"failing_queue":6382,"healthy_p50_ms":44.179268,"healthy_p99_ms":62.249855,"healthy_count":322},{"offset_seconds":98.502864,"healthy_queue":10,"failing_queue":5424,"healthy_p50_ms":38.703138,"healthy_p99_ms":55.51435,"healthy_count":321},{"offset_seconds":99.502864,"healthy_queue":15,"failing_queue":4464,"healthy_p50_ms":37.611969,"healthy_p99_ms":53.009497,"healthy_count":314},{"offset_seconds":100.502864,"healthy_queue":18,"failing_queue":3469,"healthy_p50_ms":36.214403,"healthy_p99_ms":46.968433,"healthy_count":318},{"offset_seconds":101.502864,"healthy_queue":0,"failing_queue":2350,"healthy_p50_ms":0,"healthy_p99_ms":0,"healthy_count":0},{"offset_seconds":102.502864,"healthy_queue":0,"failing_queue":967,"healthy_p50_ms":0,"healthy_p99_ms":0,"healthy_count":0}]}}</script>
 <script>
 "use strict";
